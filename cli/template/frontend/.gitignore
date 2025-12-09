@@ -47,6 +47,9 @@ next-env.d.ts
 *.swo
 *~
 
+# Local History (VS Code extension)
+.history/
+
 # OS files
 .DS_Store
 Thumbs.db

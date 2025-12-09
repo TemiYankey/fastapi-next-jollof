@@ -1,10 +1,22 @@
 import { config } from "@/lib/config";
+import Image from "next/image";
 import Link from "next/link";
 
 export default function Home() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-b from-background to-muted">
       <div className="text-center max-w-2xl">
+        {/* Logo */}
+        <div className="mb-6">
+          <Image
+            src="/logo.svg"
+            alt={`${config.appName} logo`}
+            width={80}
+            height={80}
+            className="mx-auto rounded-2xl shadow-lg"
+            priority
+          />
+        </div>
         <div className="inline-flex items-center px-3 py-1 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 text-sm font-medium mb-6">
           Ready to ship
         </div>
