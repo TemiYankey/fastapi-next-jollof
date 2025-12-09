@@ -163,6 +163,9 @@ secrets.json
 *.sublime-project
 *.sublime-workspace
 
+# Local History (VS Code extension)
+.history/
+
 # ========================
 # OS Generated Files
 # ========================
