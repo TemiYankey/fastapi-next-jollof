@@ -115,6 +115,7 @@ interface ProjectConfig {
   emailProvider: keyof typeof EMAIL_PROVIDERS;
   frontendPort: number;
   backendPort: number;
+  includeDocker: boolean;
   includeExamples: boolean;
   initGit: boolean;
   installDeps: boolean;
@@ -336,6 +337,12 @@ async function getProjectConfig(): Promise<ProjectConfig | null> {
           },
         }),
 
+      includeDocker: () =>
+        p.confirm({
+          message: "Include Docker setup? (docker-compose, Dockerfiles)",
+          initialValue: true,
+        }),
+
       includeExamples: () =>
         p.confirm({
           message: "Include example pages & components?",
@@ -350,7 +357,7 @@ async function getProjectConfig(): Promise<ProjectConfig | null> {
 
       installDeps: () =>
         p.confirm({
-          message: "Install dependencies now?",
+          message: "Install frontend dependencies now?",
           initialValue: true,
         }),
     },
@@ -437,11 +444,16 @@ async function scaffoldProject(config: ProjectConfig) {
   applyTemplate("frontend-makefile.hbs", "frontend/Makefile");
   applyTemplate("test-email-providers.py.hbs", "backend/tests/unit/emails/test_providers.py");
   applyTemplate("test-email-factories.py.hbs", "backend/tests/unit/emails/factories.py");
-  applyTemplate("docker-compose.yml.hbs", "docker-compose.yml");
-  applyTemplate("backend-dockerfile.hbs", "backend/Dockerfile");
-  applyTemplate("frontend-dockerfile.hbs", "frontend/Dockerfile");
-  applyTemplate("backend-dockerignore.hbs", "backend/.dockerignore");
-  applyTemplate("frontend-dockerignore.hbs", "frontend/.dockerignore");
+  applyTemplate("gitignore.hbs", ".gitignore");
+
+  // Docker files (only if user selected)
+  if (config.includeDocker) {
+    applyTemplate("docker-compose.yml.hbs", "docker-compose.yml");
+    applyTemplate("backend-dockerfile.hbs", "backend/Dockerfile");
+    applyTemplate("frontend-dockerfile.hbs", "frontend/Dockerfile");
+    applyTemplate("backend-dockerignore.hbs", "backend/.dockerignore");
+    applyTemplate("frontend-dockerignore.hbs", "frontend/.dockerignore");
+  }
 
   // Remove unused payment provider files
   const paymentProvidersDir = path.join(targetDir, "backend", "app", "billing", "providers");
@@ -545,13 +557,12 @@ async function scaffoldProject(config: ProjectConfig) {
     }
   }
 
-  // Step 5: Install dependencies
+  // Step 5: Install frontend dependencies only
   if (config.installDeps) {
     console.log();
-    p.log.step(chalk.dim("Installing dependencies (this may take a minute)..."));
+    p.log.step(chalk.dim("Installing frontend dependencies..."));
     console.log();
 
-    // Frontend
     spinner.start(chalk.cyan("📦 Installing frontend dependencies..."));
     try {
       execSync("npm install", { cwd: path.join(targetDir, "frontend"), stdio: "ignore" });
@@ -559,30 +570,6 @@ async function scaffoldProject(config: ProjectConfig) {
     } catch {
       spinner.stop(chalk.red("📦 Frontend install failed"));
       p.log.warn("Run 'npm install' manually in frontend/");
-    }
-
-    // Backend venv
-    spinner.start(chalk.cyan("🐍 Creating backend virtual environment..."));
-    try {
-      execSync("python3 -m venv venv", { cwd: path.join(targetDir, "backend"), stdio: "ignore" });
-      spinner.stop(chalk.green("🐍 Backend virtual environment created"));
-    } catch {
-      spinner.stop(chalk.red("🐍 Failed to create backend virtual environment"));
-      p.log.warn("Run 'python3 -m venv venv' manually in backend/");
-    }
-
-    // Backend pip install
-    spinner.start(chalk.cyan("🐍 Installing backend dependencies..."));
-    try {
-      const pip = process.platform === "win32" ? ".\\venv\\Scripts\\pip" : "./venv/bin/pip";
-      execSync(`${pip} install -r requirements.txt`, {
-        cwd: path.join(targetDir, "backend"),
-        stdio: "ignore",
-      });
-      spinner.stop(chalk.green("🐍 Backend dependencies installed"));
-    } catch {
-      spinner.stop(chalk.red("🐍 Backend dependencies installation failed"));
-      p.log.warn("Run './venv/bin/pip install -r requirements.txt' manually in backend/");
     }
   }
 
@@ -593,56 +580,71 @@ function printNextSteps(targetDir: string, config: ProjectConfig) {
   const relativePath = path.relative(process.cwd(), targetDir);
 
   console.log();
-  console.log(successGradient("  ✨ Your Jollof app is ready! ✨"));
+  console.log(jollofGradient("  ✨ Your Jollof app is ready! ✨"));
   console.log();
 
-  // Modern styled next steps box
-  const boxWidth = 58;
-  const border = chalk.hex("#6366f1");
-  const title = chalk.bold.white;
-  const cmd = chalk.hex("#22d3ee");
-  const comment = chalk.hex("#94a3b8");
-  const highlight = chalk.hex("#f472b6");
+  // Jollof orange theme colors
+  const o = chalk.hex("#ff6b35"); // orange border
+  const c = chalk.hex("#f7c59f"); // command color
+  const t = chalk.hex("#ffb088"); // text color
+  const h = chalk.hex("#ff8c42"); // highlight
 
-  console.log(border("  ┌" + "─".repeat(boxWidth) + "┐"));
-  console.log(border("  │") + title(" 🚀 Next Steps".padEnd(boxWidth)) + border("│"));
-  console.log(border("  ├" + "─".repeat(boxWidth) + "┤"));
-  console.log(border("  │") + " ".repeat(boxWidth) + border("│"));
-  console.log(border("  │") + comment("  1. Navigate to your project:".padEnd(boxWidth)) + border("│"));
-  console.log(border("  │") + `     ${cmd("cd " + relativePath)}`.padEnd(boxWidth + 10) + border("│"));
-  console.log(border("  │") + " ".repeat(boxWidth) + border("│"));
-  console.log(border("  │") + comment("  2. Set up environment variables:".padEnd(boxWidth)) + border("│"));
-  console.log(border("  │") + `     ${cmd("cp")} frontend/.env.example frontend/.env.local`.padEnd(boxWidth + 10) + border("│"));
-  console.log(border("  │") + `     ${cmd("cp")} backend/.env.example backend/.env`.padEnd(boxWidth + 10) + border("│"));
-  console.log(border("  │") + " ".repeat(boxWidth) + border("│"));
-  console.log(border("  │") + comment("  3. Start with Docker (recommended):".padEnd(boxWidth)) + border("│"));
-  console.log(border("  │") + `     ${cmd("docker compose up -d")}`.padEnd(boxWidth + 10) + border("│"));
-  console.log(border("  │") + " ".repeat(boxWidth) + border("│"));
-  console.log(border("  │") + comment("  4. Or run locally:".padEnd(boxWidth)) + border("│"));
-  console.log(border("  │") + `     ${highlight("Terminal 1:")} ${cmd("cd")} frontend && ${cmd("make dev")}`.padEnd(boxWidth + 20) + border("│"));
-  console.log(border("  │") + `     ${highlight("Terminal 2:")} ${cmd("cd")} backend`.padEnd(boxWidth + 20) + border("│"));
-  console.log(border("  │") + `                  ${cmd("source venv/bin/activate")}`.padEnd(boxWidth + 10) + border("│"));
-  console.log(border("  │") + `                  ${cmd("make dev")}`.padEnd(boxWidth + 10) + border("│"));
-  console.log(border("  │") + " ".repeat(boxWidth) + border("│"));
-  console.log(border("  └" + "─".repeat(boxWidth) + "┘"));
+  // Box width = 60 inner chars
+  const W = 60;
+  const bar = "─".repeat(W);
+  const spc = " ".repeat(W);
+  const pad = (s: string, len: number) => s + " ".repeat(Math.max(0, W - len));
+
+  console.log(o(`  ┌${bar}┐`));
+  console.log(o("  │") + pad(chalk.bold.white(" 🚀 Next Steps"), 15) + o("│"));
+  console.log(o(`  ├${bar}┤`));
+  console.log(o("  │") + spc + o("│"));
+  console.log(o("  │") + pad(t(" 1. Navigate to your project:"), 30) + o("│"));
+  console.log(o("  │") + pad(c(`    cd ${relativePath}`), 7 + relativePath.length) + o("│"));
+  console.log(o("  │") + spc + o("│"));
+  console.log(o("  │") + pad(t(" 2. Set up environment variables:"), 34) + o("│"));
+  console.log(o("  │") + pad(`    ${c("cp")} frontend/.env.example frontend/.env.local`, 49) + o("│"));
+  console.log(o("  │") + pad(`    ${c("cp")} backend/.env.example backend/.env`, 41) + o("│"));
+  console.log(o("  │") + spc + o("│"));
+  console.log(o("  │") + pad(t(" 3. Set up backend:"), 20) + o("│"));
+  console.log(o("  │") + pad(`    ${c("cd")} backend`, 15) + o("│"));
+  console.log(o("  │") + pad(`    ${c("python3 -m venv venv")}`, 25) + o("│"));
+  console.log(o("  │") + pad(`    ${c("source venv/bin/activate")}`, 29) + o("│"));
+  console.log(o("  │") + pad(`    ${c("pip install -r requirements.txt")}`, 36) + o("│"));
+  console.log(o("  │") + spc + o("│"));
+
+  let stepNum = 4;
+
+  if (config.includeDocker) {
+    console.log(o("  │") + pad(t(` ${stepNum}. Or use Docker:`), 19) + o("│"));
+    console.log(o("  │") + pad(`    ${c("docker compose up -d")}`, 25) + o("│"));
+    console.log(o("  │") + spc + o("│"));
+    stepNum++;
+  }
+
+  console.log(o("  │") + pad(t(` ${stepNum}. Run locally:`), 17) + o("│"));
+  console.log(o("  │") + pad(`    ${h("Terminal 1:")} cd frontend && ${c("make dev")}`, 40) + o("│"));
+  console.log(o("  │") + pad(`    ${h("Terminal 2:")} cd backend && ${c("make dev")}`, 39) + o("│"));
+  console.log(o("  │") + spc + o("│"));
+  console.log(o(`  └${bar}┘`));
 
   console.log();
 
-  // Configuration summary with modern styling
-  console.log(chalk.bold.white("  📋 Configuration"));
-  console.log(chalk.hex("#64748b")("  ─".repeat(20)));
-  console.log(chalk.hex("#94a3b8")("  App:      ") + chalk.white(config.appName));
+  // Configuration summary with jollof styling
+  console.log(chalk.bold.hex("#ff6b35")("  📋 Configuration"));
+  console.log(chalk.hex("#ff8c42")("  ─".repeat(20)));
+  console.log(chalk.hex("#ffb088")("  App:      ") + chalk.white(config.appName));
   console.log(
-    chalk.hex("#94a3b8")("  Color:    ") +
+    chalk.hex("#ffb088")("  Color:    ") +
       COLOR_THEMES[config.colorTheme].preview +
       " " +
       chalk.white(COLOR_THEMES[config.colorTheme].name)
   );
-  console.log(chalk.hex("#94a3b8")("  Payment:  ") + chalk.white(PAYMENT_PROVIDERS[config.paymentProvider].name));
-  console.log(chalk.hex("#94a3b8")("  Email:    ") + chalk.white(EMAIL_PROVIDERS[config.emailProvider].name));
-  console.log(chalk.hex("#94a3b8")("  Frontend: ") + chalk.hex("#22d3ee")(`http://localhost:${config.frontendPort}`));
-  console.log(chalk.hex("#94a3b8")("  Backend:  ") + chalk.hex("#22d3ee")(`http://localhost:${config.backendPort}`));
-  console.log(chalk.hex("#94a3b8")("  Examples: ") + chalk.white(config.includeExamples ? "Yes" : "No"));
+  console.log(chalk.hex("#ffb088")("  Payment:  ") + chalk.white(PAYMENT_PROVIDERS[config.paymentProvider].name));
+  console.log(chalk.hex("#ffb088")("  Email:    ") + chalk.white(EMAIL_PROVIDERS[config.emailProvider].name));
+  console.log(chalk.hex("#ffb088")("  Frontend: ") + chalk.hex("#f7c59f")(`http://localhost:${config.frontendPort}`));
+  console.log(chalk.hex("#ffb088")("  Backend:  ") + chalk.hex("#f7c59f")(`http://localhost:${config.backendPort}`));
+  console.log(chalk.hex("#ffb088")("  Examples: ") + chalk.white(config.includeExamples ? "Yes" : "No"));
   console.log();
 
   if (config.paymentProvider !== "nomba") {
@@ -651,7 +653,7 @@ function printNextSteps(targetDir: string, config: ProjectConfig) {
     );
   }
 
-  console.log(chalk.hex("#94a3b8")("  📚 Docs: ") + chalk.hex("#22d3ee")("https://github.com/sir-temi/fastapi-next-jollof"));
+  console.log(chalk.hex("#ffb088")("  📚 Docs: ") + chalk.hex("#f7c59f")("https://github.com/sir-temi/fastapi-next-jollof"));
   console.log();
 }
 
@@ -688,6 +690,7 @@ async function main() {
       emailProvider: (options.email as keyof typeof EMAIL_PROVIDERS) || "resend",
       frontendPort: parseInt(options.frontendPort, 10) || 3000,
       backendPort: parseInt(options.backendPort, 10) || 8000,
+      includeDocker: true,
       includeExamples: true,
       initGit: options.git !== false,
       installDeps: options.install !== false,

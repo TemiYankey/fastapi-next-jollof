@@ -24,8 +24,16 @@
     "cli",
     "create-app"
   ],
-  "author": "",
+  "author": "Sir Temi",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sir-temi/fastapi-next-jollof.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sir-temi/fastapi-next-jollof/issues"
+  },
+  "homepage": "https://github.com/sir-temi/fastapi-next-jollof#readme",
   "dependencies": {
     "@clack/prompts": "^0.8.2",
     "chalk": "^5.4.1",
@@ -47,6 +55,7 @@
   },
   "files": [
     "dist",
-    "template"
+    "template",
+    "templates"
   ]
 }
