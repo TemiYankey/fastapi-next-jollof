@@ -1,0 +1,23 @@
+"""Payment providers."""
+
+{{#if isNomba}}
+from app.billing.providers.nomba import NombaPaymentProvider, nomba_provider
+
+__all__ = ["NombaPaymentProvider", "nomba_provider"]
+
+payment_provider = nomba_provider
+{{/if}}
+{{#if isStripe}}
+from app.billing.providers.stripe import StripePaymentProvider, stripe_provider
+
+__all__ = ["StripePaymentProvider", "stripe_provider"]
+
+payment_provider = stripe_provider
+{{/if}}
+{{#if isPaystack}}
+from app.billing.providers.paystack import PaystackPaymentProvider, paystack_provider
+
+__all__ = ["PaystackPaymentProvider", "paystack_provider"]
+
+payment_provider = paystack_provider
+{{/if}}

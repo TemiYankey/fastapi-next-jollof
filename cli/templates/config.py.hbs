@@ -1,0 +1,96 @@
+"""Application configuration."""
+
+import os
+
+from pydantic_settings import SettingsConfigDict
+
+from app.base.config import BaseAppSettings
+from app.base.testing.utils import is_testing_environment
+
+
+class Settings(BaseAppSettings):
+    """Application settings."""
+
+    # App
+    app_name: str = "{{appName}}"
+    app_description: str = "A production-ready FastAPI + Next.js application"
+    debug: bool = False
+    environment: str = "development"
+    allowed_hosts: list[str] = ["*"]
+
+    # Database
+    database_url: str = "postgresql+asyncpg://user:password@localhost:5432/{{dbName}}"
+
+    # Supabase Auth
+    supabase_url: str = ""
+    supabase_public_key: str = ""
+    supabase_secret_key: str = ""
+    supabase_jwt_secret: str = ""
+
+    # Google OAuth (optional)
+    google_oauth_client_id: str = ""
+    google_oauth_client_secret: str = ""
+
+{{#if isNomba}}
+    # Payment - Nomba
+    nomba_client_id: str = ""
+    nomba_client_secret: str = ""
+    nomba_account_id: str = ""
+    nomba_webhook_secret: str = ""
+{{/if}}
+{{#if isStripe}}
+    # Payment - Stripe
+    stripe_secret_key: str = ""
+    stripe_publishable_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_currency: str = "usd"
+{{/if}}
+{{#if isPaystack}}
+    # Payment - Paystack
+    paystack_secret_key: str = ""
+    paystack_public_key: str = ""
+    paystack_webhook_secret: str = ""
+{{/if}}
+
+{{#if isResend}}
+    # Email - Resend
+    resend_api_key: str = ""
+    from_email: str = ""
+    from_name: str = ""
+{{/if}}
+{{#if isBrevo}}
+    # Email - Brevo
+    brevo_api_key: str = ""
+    from_email: str = ""
+    from_name: str = ""
+{{/if}}
+
+    # Security
+    secret_key: str = ""
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+
+    # CORS
+    cors_allowed_origins: str = ""
+
+    # Redis
+    redis_url: str = "redis://localhost:6379"
+
+    # Sentry (optional)
+    sentry_dsn: str = ""
+
+    model_config = SettingsConfigDict(
+        env_file=[
+            os.environ.get("APP_ENV_FILE", ".env"),
+            (
+                ".env.test" if is_testing_environment() else ".env"
+            ),
+            ".env.local",
+            ".env",
+        ],
+        env_file_encoding="utf-8",
+    )
+
+
+# Global settings instance
+settings = Settings()

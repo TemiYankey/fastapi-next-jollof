@@ -1,0 +1,74 @@
+"""Test factories for email tests."""
+
+from contextlib import contextmanager
+from unittest.mock import patch
+
+from app.emails.schemas import EmailRequest
+
+
+class EmailRequestFactory:
+    """Factory for creating EmailRequest test objects."""
+
+    @staticmethod
+    def create(
+        to: str = "test@example.com",
+        subject: str = "Test Subject",
+        html_content: str = "<p>Test content</p>",
+        text_content: str = "Test content",
+    ) -> EmailRequest:
+        """Create a basic email request."""
+        return EmailRequest(
+            to=to,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+        )
+
+    @staticmethod
+    def create_with_custom_from() -> EmailRequest:
+        """Create email request with custom from address."""
+        return EmailRequest(
+            to="test@example.com",
+            subject="Test",
+            html_content="<p>Test</p>",
+            from_email="custom@example.com",
+            from_name="Custom Sender",
+        )
+
+    @staticmethod
+    def create_with_reply_to() -> EmailRequest:
+        """Create email request with reply-to."""
+        return EmailRequest(
+            to="test@example.com",
+            subject="Test",
+            html_content="<p>Test</p>",
+            reply_to="reply@example.com",
+        )
+
+
+class SettingsFactory:
+    """Factory for mocking settings in tests."""
+
+    @staticmethod
+    @contextmanager
+    def mock(
+{{#if isResend}}
+        resend_api_key: str = "re_test_key",
+{{/if}}
+{{#if isBrevo}}
+        brevo_api_key: str = "xkeysib_test_key",
+{{/if}}
+        from_email: str = "test@example.com",
+        from_name: str = "Test App",
+    ):
+        """Context manager to mock settings."""
+        with patch("app.emails.providers.base.settings") as mock_settings:
+{{#if isResend}}
+            mock_settings.resend_api_key = resend_api_key
+{{/if}}
+{{#if isBrevo}}
+            mock_settings.brevo_api_key = brevo_api_key
+{{/if}}
+            mock_settings.from_email = from_email
+            mock_settings.from_name = from_name
+            yield mock_settings
