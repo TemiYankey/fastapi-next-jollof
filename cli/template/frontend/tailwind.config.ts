@@ -24,6 +24,11 @@ const config: Config = {
         border: "var(--border)",
         muted: "var(--muted)",
         alternate: "var(--alternate)",
+        // Input colors
+        input: {
+          DEFAULT: "var(--input)",
+          border: "var(--input-border)",
+        },
         // Brand colors - CLI will replace 'colors.indigo' with selected theme
         primary: colors.indigo,
       },

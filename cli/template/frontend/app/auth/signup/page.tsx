@@ -3,6 +3,7 @@
 import Button from "@/components/ui/Button";
 import { GoogleSignInButton } from "@/components/ui/GoogleSignInButton";
 import Input from "@/components/ui/Input";
+import PasswordStrength, { validatePassword } from "@/components/ui/PasswordStrength";
 import { useAuth } from "@/contexts/AuthContext";
 import { config } from "@/lib/config";
 import { ArrowRightIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
@@ -27,8 +28,8 @@ export default function SignUpPage() {
     setError("");
 
     // Password validation
-    if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters long.");
+    if (!validatePassword(formData.password)) {
+      setError("Please meet all password requirements.");
       setIsSubmitting(false);
       return;
     }
@@ -159,10 +160,8 @@ export default function SignUpPage() {
             showPasswordToggle
           />
 
-          {/* Password requirements */}
-          <p className="text-xs text-foreground-muted">
-            Password must be at least 8 characters long.
-          </p>
+          {/* Password strength indicator */}
+          <PasswordStrength password={formData.password} />
 
           {/* Submit Button */}
           <Button
