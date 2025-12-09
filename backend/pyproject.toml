@@ -1,0 +1,17 @@
+[tool.aerich]
+tortoise_orm = "app.core.database.TORTOISE_ORM"
+location = "./migrations"
+src_folder = "./."
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 88
