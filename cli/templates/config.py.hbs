@@ -17,8 +17,8 @@ class Settings(BaseAppSettings):
     environment: str = "development"
     allowed_hosts: list[str] = ["*"]
 
-    # Theme/Branding
-    primary_color: str = "{{primaryColor}}"
+    # Theme/Branding (hex color for email templates)
+    primary_color: str = "{{primaryColorHex}}"
 
     # Database
     database_url: str = "postgresql+asyncpg://user:password@localhost:5432/{{dbName}}"

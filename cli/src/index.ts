@@ -23,48 +23,56 @@ const COLOR_THEMES = {
     name: "Indigo",
     description: "Professional & trustworthy",
     primary: "indigo",
+    hex: "#6366f1",
     preview: chalk.hex("#6366f1")("████"),
   },
   violet: {
     name: "Violet",
     description: "Creative & modern",
     primary: "violet",
+    hex: "#8b5cf6",
     preview: chalk.hex("#8b5cf6")("████"),
   },
   blue: {
     name: "Blue",
     description: "Classic & reliable",
     primary: "blue",
+    hex: "#3b82f6",
     preview: chalk.hex("#3b82f6")("████"),
   },
   emerald: {
     name: "Emerald",
     description: "Fresh & growth-focused",
     primary: "emerald",
+    hex: "#10b981",
     preview: chalk.hex("#10b981")("████"),
   },
   rose: {
     name: "Rose",
     description: "Bold & energetic",
     primary: "rose",
+    hex: "#f43f5e",
     preview: chalk.hex("#f43f5e")("████"),
   },
   amber: {
     name: "Amber",
     description: "Warm & inviting",
     primary: "amber",
+    hex: "#f59e0b",
     preview: chalk.hex("#f59e0b")("████"),
   },
   cyan: {
     name: "Cyan",
     description: "Tech & futuristic",
     primary: "cyan",
+    hex: "#06b6d4",
     preview: chalk.hex("#06b6d4")("████"),
   },
   orange: {
     name: "Orange (Jollof)",
     description: "Vibrant & appetizing",
     primary: "orange",
+    hex: "#f97316",
     preview: chalk.hex("#f97316")("████"),
   },
 } as const;
@@ -125,7 +133,8 @@ interface ProjectConfig {
 interface TemplateContext {
   appName: string;
   dbName: string;
-  primaryColor: string;
+  primaryColor: string; // Tailwind color name (e.g., "indigo") for frontend
+  primaryColorHex: string; // Hex value (e.g., "#6366f1") for backend emails
   frontendPort: number;
   backendPort: number;
   // Payment
@@ -143,6 +152,7 @@ function createTemplateContext(config: ProjectConfig): TemplateContext {
     appName: config.appName,
     dbName: config.projectName.replace(/-/g, "_"),
     primaryColor: COLOR_THEMES[config.colorTheme].primary,
+    primaryColorHex: COLOR_THEMES[config.colorTheme].hex,
     frontendPort: config.frontendPort,
     backendPort: config.backendPort,
     // Payment flags
