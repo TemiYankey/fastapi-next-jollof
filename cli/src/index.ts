@@ -444,6 +444,13 @@ async function scaffoldProject(config: ProjectConfig) {
   applyTemplate("frontend-makefile.hbs", "frontend/Makefile");
   applyTemplate("test-email-providers.py.hbs", "backend/tests/unit/emails/test_providers.py");
   applyTemplate("test-email-factories.py.hbs", "backend/tests/unit/emails/factories.py");
+  applyTemplate("test-email-service.py.hbs", "backend/tests/unit/emails/test_service.py");
+  applyTemplate("test-email-schemas.py.hbs", "backend/tests/unit/emails/test_schemas.py");
+  applyTemplate("test-billing-enums.py.hbs", "backend/tests/unit/billing/test_enums.py");
+  applyTemplate("test-billing-models.py.hbs", "backend/tests/unit/billing/test_models.py");
+  applyTemplate("test-billing-routes.py.hbs", "backend/tests/unit/billing/test_routes.py");
+  applyTemplate("test-config.py.hbs", "backend/tests/unit/core/test_config.py");
+  applyTemplate("conftest.py.hbs", "backend/tests/conftest.py");
   applyTemplate("gitignore.hbs", ".gitignore");
 
   // Docker files (only if user selected)

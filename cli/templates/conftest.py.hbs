@@ -25,7 +25,7 @@ os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["ENVIRONMENT"] = "testing"
 os.environ["DEBUG"] = "false"
 os.environ["SECRET_KEY"] = "test-secret-key-for-testing"
-os.environ["CORS_ALLOWED_ORIGINS"] = "http://localhost:3000,http://localhost:8000"
+os.environ["CORS_ALLOWED_ORIGINS"] = "http://localhost:{{frontendPort}},http://localhost:{{backendPort}}"
 
 # Supabase Auth - test values
 os.environ["SUPABASE_URL"] = "https://test.supabase.co"
@@ -33,23 +33,33 @@ os.environ["SUPABASE_PUBLIC_KEY"] = "test-public-key"
 os.environ["SUPABASE_SECRET_KEY"] = "test-secret-key"
 os.environ["SUPABASE_JWT_SECRET"] = "test-jwt-secret"
 
-# Email - test values (all providers)
+# Email - test values
+{{#if isResend}}
 os.environ["RESEND_API_KEY"] = "re_test_key"
+{{/if}}
+{{#if isBrevo}}
 os.environ["BREVO_API_KEY"] = "xkeysib_test_key"
+{{/if}}
 os.environ["FROM_EMAIL"] = "test@example.com"
 os.environ["FROM_NAME"] = "Test App"
 
-# Payment - test values (all providers)
+# Payment - test values
+{{#if isNomba}}
 os.environ["NOMBA_CLIENT_ID"] = "test-client-id"
 os.environ["NOMBA_CLIENT_SECRET"] = "test-client-secret"
 os.environ["NOMBA_ACCOUNT_ID"] = "test-account-id"
 os.environ["NOMBA_WEBHOOK_SECRET"] = "test-webhook-secret"
+{{/if}}
+{{#if isStripe}}
 os.environ["STRIPE_SECRET_KEY"] = "sk_test_key"
 os.environ["STRIPE_PUBLISHABLE_KEY"] = "pk_test_key"
 os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_test_key"
+{{/if}}
+{{#if isPaystack}}
 os.environ["PAYSTACK_SECRET_KEY"] = "sk_test_key"
 os.environ["PAYSTACK_PUBLIC_KEY"] = "pk_test_key"
 os.environ["PAYSTACK_WEBHOOK_SECRET"] = "test-webhook-secret"
+{{/if}}
 
 # Redis
 os.environ["REDIS_URL"] = "redis://localhost:6379"

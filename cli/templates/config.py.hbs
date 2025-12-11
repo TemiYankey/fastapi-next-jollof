@@ -5,7 +5,6 @@ import os
 from pydantic_settings import SettingsConfigDict
 
 from app.base.config import BaseAppSettings
-from app.base.testing.utils import is_testing_environment
 
 
 class Settings(BaseAppSettings):
@@ -17,6 +16,9 @@ class Settings(BaseAppSettings):
     debug: bool = False
     environment: str = "development"
     allowed_hosts: list[str] = ["*"]
+
+    # Theme/Branding
+    primary_color: str = "{{primaryColor}}"
 
     # Database
     database_url: str = "postgresql+asyncpg://user:password@localhost:5432/{{dbName}}"
@@ -81,16 +83,38 @@ class Settings(BaseAppSettings):
 
     model_config = SettingsConfigDict(
         env_file=[
-            os.environ.get("APP_ENV_FILE", ".env"),
-            (
-                ".env.test" if is_testing_environment() else ".env"
-            ),
-            ".env.local",
-            ".env",
+            os.environ.get("APP_ENV_FILE", ".env"),  # Override: APP_ENV_FILE=.env.test for tests
+            ".env.local",  # Local overrides (gitignored)
+            ".env",  # Default
         ],
         env_file_encoding="utf-8",
     )
 
+    @property
+    def is_testing(self) -> bool:
+        """Check if running in test environment."""
+        return self.environment in ("testing", "test")
+
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production environment."""
+        return self.environment == "production"
+
+
+def get_settings() -> Settings:
+    """
+    Get the appropriate settings based on environment.
+
+    Returns TestSettings if ENVIRONMENT=testing, otherwise Settings.
+    TestSettings is in app.base.testing.config to keep test code separate.
+    """
+    env = os.environ.get("ENVIRONMENT", "development")
+    if env in ("testing", "test"):
+        from app.base.testing.config import TestSettings
+
+        return TestSettings()
+    return Settings()
+
 
 # Global settings instance
-settings = Settings()
+settings = get_settings()

@@ -1,0 +1,119 @@
+"""Tests for billing enums."""
+
+import pytest
+
+from app.billing.enums import PaymentMethod, PaymentProvider, PaymentStatus
+
+
+class TestPaymentProvider:
+    """Tests for PaymentProvider enum."""
+
+{{#if isNomba}}
+    def test_nomba_provider(self):
+        """Test Nomba provider value."""
+        assert PaymentProvider.NOMBA.value == "nomba"
+{{/if}}
+{{#if isStripe}}
+    def test_stripe_provider(self):
+        """Test Stripe provider value."""
+        assert PaymentProvider.STRIPE.value == "stripe"
+{{/if}}
+{{#if isPaystack}}
+    def test_paystack_provider(self):
+        """Test Paystack provider value."""
+        assert PaymentProvider.PAYSTACK.value == "paystack"
+{{/if}}
+
+    def test_all_providers_available(self):
+        """Test all expected providers are available."""
+        provider_values = {p.value for p in PaymentProvider}
+{{#if isNomba}}
+        assert "nomba" in provider_values
+{{/if}}
+{{#if isStripe}}
+        assert "stripe" in provider_values
+{{/if}}
+{{#if isPaystack}}
+        assert "paystack" in provider_values
+{{/if}}
+
+
+class TestPaymentStatus:
+    """Tests for PaymentStatus enum."""
+
+    def test_pending_status(self):
+        """Test pending status value."""
+        assert PaymentStatus.PENDING.value == "pending"
+
+    def test_success_status(self):
+        """Test success status value."""
+        assert PaymentStatus.SUCCESS.value == "success"
+
+    def test_failed_status(self):
+        """Test failed status value."""
+        assert PaymentStatus.FAILED.value == "failed"
+
+    def test_cancelled_status(self):
+        """Test cancelled status value."""
+        assert PaymentStatus.CANCELLED.value == "cancelled"
+
+    def test_refunded_status(self):
+        """Test refunded status value."""
+        assert PaymentStatus.REFUNDED.value == "refunded"
+
+    def test_all_statuses_available(self):
+        """Test all expected statuses are available."""
+        status_values = {s.value for s in PaymentStatus}
+        assert status_values == {"pending", "success", "failed", "cancelled", "refunded"}
+
+
+class TestPaymentMethod:
+    """Tests for PaymentMethod enum."""
+
+    def test_card_method(self):
+        """Test card payment method."""
+        assert PaymentMethod.CARD.value == "card"
+
+    def test_bank_transfer_method(self):
+        """Test bank transfer payment method."""
+        assert PaymentMethod.BANK_TRANSFER.value == "bank_transfer"
+
+    def test_ussd_method(self):
+        """Test USSD payment method."""
+        assert PaymentMethod.USSD.value == "ussd"
+
+    def test_qr_method(self):
+        """Test QR payment method."""
+        assert PaymentMethod.QR.value == "qr"
+
+    def test_all_methods_available(self):
+        """Test all expected methods are available."""
+        method_values = {m.value for m in PaymentMethod}
+        assert method_values == {"card", "bank_transfer", "ussd", "qr"}
+
+
+class TestEnumComparisons:
+    """Tests for enum comparison behavior."""
+
+    def test_provider_equality_with_string(self):
+        """Test provider can be compared with string."""
+{{#if isNomba}}
+        assert PaymentProvider.NOMBA == "nomba"
+{{/if}}
+{{#if isStripe}}
+        assert PaymentProvider.STRIPE == "stripe"
+{{/if}}
+{{#if isPaystack}}
+        assert PaymentProvider.PAYSTACK == "paystack"
+{{/if}}
+
+    def test_status_equality_with_string(self):
+        """Test status can be compared with string."""
+        assert PaymentStatus.PENDING == "pending"
+        assert PaymentStatus.SUCCESS == "success"
+        assert PaymentStatus.FAILED == "failed"
+
+    def test_method_equality_with_string(self):
+        """Test method can be compared with string."""
+        assert PaymentMethod.CARD == "card"
+        assert PaymentMethod.BANK_TRANSFER == "bank_transfer"

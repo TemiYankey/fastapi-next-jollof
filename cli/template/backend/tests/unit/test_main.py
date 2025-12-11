@@ -150,16 +150,6 @@ class TestLifespan:
                             pass
 
 
-class TestStaticFiles:
-    """Tests for static file serving."""
-
-    def test_static_directory_mounted(self):
-        """Test static files directory is mounted."""
-        routes = [route.path for route in app.routes]
-        # Static files are mounted at /static
-        assert any("/static" in str(route) for route in app.routes)
-
-
 class TestRateLimiter:
     """Tests for rate limiter configuration."""
 

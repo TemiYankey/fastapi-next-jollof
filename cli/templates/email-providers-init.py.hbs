@@ -1,20 +1,16 @@
 """Email providers."""
 
 {{#if isResend}}
-from app.emails.providers.resend import ResendEmailProvider, resend_provider
+from app.emails.providers.resend import ResendProvider
 
-__all__ = ["ResendEmailProvider", "resend_provider"]
-
-email_provider = resend_provider
+__all__ = ["ResendProvider"]
 {{/if}}
 {{#if isBrevo}}
-from app.emails.providers.brevo import BrevoEmailProvider, brevo_provider
+from app.emails.providers.brevo import BrevoProvider
 
-__all__ = ["BrevoEmailProvider", "brevo_provider"]
-
-email_provider = brevo_provider
+__all__ = ["BrevoProvider"]
 {{/if}}
 {{#if noEmail}}
 # No email provider configured - add one later
-email_provider = None
+__all__ = []
 {{/if}}

@@ -78,14 +78,14 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             disabled={disabled}
             required={required}
             className={`
-              block w-full border rounded-xl shadow-sm
+              block w-full border rounded-xl
               bg-input text-foreground-primary
               placeholder:text-foreground-muted
-              focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500
+              focus:outline-none focus:ring-1 focus:ring-primary-500/50 focus:border-primary-500
               transition-all duration-200
               ${sizeClasses[size]}
               ${isPasswordType && showPasswordToggle ? "pr-11" : ""}
-              ${error ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-input-border"}
+              ${error ? "border-red-500 focus:ring-1 focus:ring-red-500/50 focus:border-red-500" : "border-input-border"}
               ${disabled ? "opacity-50 cursor-not-allowed" : ""}
               ${className}
             `}

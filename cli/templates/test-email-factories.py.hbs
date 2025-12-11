@@ -60,15 +60,27 @@ class SettingsFactory:
 {{/if}}
         from_email: str = "test@example.com",
         from_name: str = "Test App",
+        app_name: str = "Test App",
+        primary_color: str = "#6366f1",
     ):
         """Context manager to mock settings."""
-        with patch("app.emails.providers.base.settings") as mock_settings:
+        # Need to patch settings in all modules that import it
+        with patch("app.emails.service.settings") as mock_service_settings, \
+             patch("app.emails.templates.settings") as mock_template_settings, \
 {{#if isResend}}
-            mock_settings.resend_api_key = resend_api_key
+             patch("app.emails.providers.resend.settings") as mock_provider_settings:
+            mock_service_settings.resend_api_key = resend_api_key
+            mock_provider_settings.resend_api_key = resend_api_key
 {{/if}}
 {{#if isBrevo}}
-            mock_settings.brevo_api_key = brevo_api_key
+             patch("app.emails.providers.brevo.settings") as mock_provider_settings:
+            mock_service_settings.brevo_api_key = brevo_api_key
+            mock_provider_settings.brevo_api_key = brevo_api_key
 {{/if}}
-            mock_settings.from_email = from_email
-            mock_settings.from_name = from_name
-            yield mock_settings
+            # Set common settings on all mock objects
+            for mock_settings in [mock_service_settings, mock_template_settings, mock_provider_settings]:
+                mock_settings.from_email = from_email
+                mock_settings.from_name = from_name
+                mock_settings.app_name = app_name
+                mock_settings.primary_color = primary_color
+            yield mock_service_settings
