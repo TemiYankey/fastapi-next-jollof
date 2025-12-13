@@ -22,7 +22,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Python lib (but not cli/src/lib)
+/lib/
 lib64/
 parts/
 sdist/
@@ -206,3 +207,6 @@ tmp/
 temp/
 *.tmp
 *.temp
+
+# CLI development scripts
+cli/scripts/

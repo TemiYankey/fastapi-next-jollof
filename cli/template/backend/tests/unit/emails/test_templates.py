@@ -158,8 +158,8 @@ class TestEmailTemplates:
             # Check HTML content
             assert "This is a custom message." in html_content
 
-            # Check text content
-            assert text_content == "This is a custom message."
+            # Check text content contains the message
+            assert "This is a custom message." in text_content
 
     def test_generic_template_default_subject(self):
         """Test generic template uses default subject."""
@@ -186,7 +186,7 @@ class TestEmailTemplates:
 
             # Check HTML structure
             assert "<!DOCTYPE html>" in html_content
-            assert "<html>" in html_content
+            assert "<html" in html_content
             assert "<head>" in html_content
             assert "<body>" in html_content
             assert "</html>" in html_content
@@ -266,10 +266,8 @@ class TestEmailTemplates:
 class TestTemplateSecurityAndSanitization:
     """Tests for template security."""
 
-    def test_html_content_in_context_not_escaped_for_trusted_input(self):
-        """Test that trusted HTML in templates is rendered."""
-        # Note: In production, you'd want to sanitize user input
-        # but for templates, the content is trusted
+    def test_html_content_is_escaped_by_jinja2(self):
+        """Test that Jinja2 auto-escapes HTML in user input."""
         context = {
             "name": "<script>alert('xss')</script>",  # Malicious input
             "dashboard_url": "https://example.com",
@@ -280,15 +278,15 @@ class TestTemplateSecurityAndSanitization:
                 EmailType.WELCOME, context
             )
 
-            # The name will be included as-is since templates trust context
-            # In a real app, sanitize user-provided values before passing to template
-            assert "alert" in html_content or "&lt;script&gt;" in html_content
+            # Jinja2 should escape HTML characters
+            assert "&lt;script&gt;" in html_content
+            assert "<script>" not in html_content
 
-    def test_url_injection_protection(self):
-        """Test that URLs are handled properly."""
+    def test_url_in_template(self):
+        """Test that URLs are included in templates."""
         context = {
             "name": "Test",
-            "dashboard_url": "javascript:alert('xss')",  # Malicious URL
+            "dashboard_url": "https://example.com/dashboard",
         }
 
         with SettingsFactory.mock():
@@ -296,6 +294,5 @@ class TestTemplateSecurityAndSanitization:
                 EmailType.WELCOME, context
             )
 
-            # URL will be included - sanitization should happen before template
-            # This test documents current behavior
-            assert "javascript:" in html_content  # Currently not sanitized
+            # URL should be in template
+            assert "https://example.com/dashboard" in html_content

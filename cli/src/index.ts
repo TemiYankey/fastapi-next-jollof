@@ -8,213 +8,43 @@ import fs from "fs-extra";
 import path from "path";
 import { fileURLToPath } from "url";
 import { execSync } from "child_process";
-import Handlebars from "handlebars";
+
+import {
+  COLOR_THEMES,
+  PAYMENT_PROVIDERS,
+  EMAIL_PROVIDERS,
+} from "./lib/constants.js";
+import type { ProjectConfig, TemplateContext } from "./lib/types.js";
+import { validateProjectName, validatePort, validateAppName } from "./lib/validation.js";
+import {
+  createTemplateContext,
+  renderTemplateString,
+  projectNameToDisplayName,
+  generateLogoSvg,
+  generateFaviconSvg,
+  updateTailwindConfig,
+  getTemplateFiles,
+  getFilesToRemove,
+} from "./lib/templates.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Beautiful gradients
 const jollofGradient = gradient(["#ff6b35", "#f7c59f", "#ff6b35"]);
-const successGradient = gradient(["#00d4aa", "#7c3aed"]);
-
-// Tailwind color themes
-const COLOR_THEMES = {
-  indigo: {
-    name: "Indigo",
-    description: "Professional & trustworthy",
-    primary: "indigo",
-    hex: "#6366f1",
-    preview: chalk.hex("#6366f1")("████"),
-  },
-  violet: {
-    name: "Violet",
-    description: "Creative & modern",
-    primary: "violet",
-    hex: "#8b5cf6",
-    preview: chalk.hex("#8b5cf6")("████"),
-  },
-  blue: {
-    name: "Blue",
-    description: "Classic & reliable",
-    primary: "blue",
-    hex: "#3b82f6",
-    preview: chalk.hex("#3b82f6")("████"),
-  },
-  emerald: {
-    name: "Emerald",
-    description: "Fresh & growth-focused",
-    primary: "emerald",
-    hex: "#10b981",
-    preview: chalk.hex("#10b981")("████"),
-  },
-  rose: {
-    name: "Rose",
-    description: "Bold & energetic",
-    primary: "rose",
-    hex: "#f43f5e",
-    preview: chalk.hex("#f43f5e")("████"),
-  },
-  amber: {
-    name: "Amber",
-    description: "Warm & inviting",
-    primary: "amber",
-    hex: "#f59e0b",
-    preview: chalk.hex("#f59e0b")("████"),
-  },
-  cyan: {
-    name: "Cyan",
-    description: "Tech & futuristic",
-    primary: "cyan",
-    hex: "#06b6d4",
-    preview: chalk.hex("#06b6d4")("████"),
-  },
-  orange: {
-    name: "Orange (Jollof)",
-    description: "Vibrant & appetizing",
-    primary: "orange",
-    hex: "#f97316",
-    preview: chalk.hex("#f97316")("████"),
-  },
-} as const;
-
-// Payment providers
-const PAYMENT_PROVIDERS = {
-  nomba: {
-    name: "Nomba",
-    description: "Nigerian payment gateway (cards, transfers)",
-    regions: ["Nigeria", "Africa"],
-    comingSoon: false,
-  },
-  paystack: {
-    name: "Paystack",
-    description: "African payments made simple",
-    regions: ["Nigeria", "Ghana", "South Africa", "Kenya"],
-    comingSoon: true,
-  },
-  stripe: {
-    name: "Stripe",
-    description: "Global payment processing",
-    regions: ["Global (190+ countries)"],
-    comingSoon: true,
-  },
-} as const;
-
-// Email providers
-const EMAIL_PROVIDERS = {
-  resend: {
-    name: "Resend",
-    description: "Modern email API, great DX, 3k free/month",
-  },
-  brevo: {
-    name: "Brevo",
-    description: "Formerly Sendinblue, 300 free/day",
-  },
-  none: {
-    name: "None (Skip for now)",
-    description: "Configure email later",
-  },
-} as const;
-
-interface ProjectConfig {
-  projectName: string;
-  appName: string;
-  colorTheme: keyof typeof COLOR_THEMES;
-  paymentProvider: keyof typeof PAYMENT_PROVIDERS;
-  emailProvider: keyof typeof EMAIL_PROVIDERS;
-  frontendPort: number;
-  backendPort: number;
-  includeDocker: boolean;
-  includeExamples: boolean;
-  initGit: boolean;
-  installDeps: boolean;
-}
-
-// Template context for Handlebars
-interface TemplateContext {
-  appName: string;
-  dbName: string;
-  primaryColor: string; // Tailwind color name (e.g., "indigo") for frontend
-  primaryColorHex: string; // Hex value (e.g., "#6366f1") for backend emails
-  frontendPort: number;
-  backendPort: number;
-  // Payment
-  isNomba: boolean;
-  isStripe: boolean;
-  isPaystack: boolean;
-  // Email
-  isResend: boolean;
-  isBrevo: boolean;
-  noEmail: boolean;
-}
-
-function createTemplateContext(config: ProjectConfig): TemplateContext {
-  return {
-    appName: config.appName,
-    dbName: config.projectName.replace(/-/g, "_"),
-    primaryColor: COLOR_THEMES[config.colorTheme].primary,
-    primaryColorHex: COLOR_THEMES[config.colorTheme].hex,
-    frontendPort: config.frontendPort,
-    backendPort: config.backendPort,
-    // Payment flags
-    isNomba: config.paymentProvider === "nomba",
-    isStripe: config.paymentProvider === "stripe",
-    isPaystack: config.paymentProvider === "paystack",
-    // Email flags
-    isResend: config.emailProvider === "resend",
-    isBrevo: config.emailProvider === "brevo",
-    noEmail: config.emailProvider === "none",
-  };
-}
 
 function renderTemplate(templatePath: string, context: TemplateContext): string {
   const templateContent = fs.readFileSync(templatePath, "utf-8");
-  const template = Handlebars.compile(templateContent);
-  return template(context);
+  return renderTemplateString(templateContent, context);
 }
 
-// Color hex values for SVG generation
-const COLOR_HEX: Record<string, string> = {
-  indigo: "#6366f1",
-  violet: "#8b5cf6",
-  blue: "#3b82f6",
-  emerald: "#10b981",
-  rose: "#f43f5e",
-  amber: "#f59e0b",
-  cyan: "#06b6d4",
-  orange: "#f97316",
-};
-
-function generateLogoSvg(appName: string, color: string): string {
-  const initials = appName
-    .split(" ")
-    .map((word) => word[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-
-  const hexColor = COLOR_HEX[color] || COLOR_HEX.indigo;
-
-  return `<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:${hexColor};stop-opacity:1" />
-      <stop offset="100%" style="stop-color:${hexColor}dd;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="96" fill="url(#bgGradient)"/>
-  <text x="256" y="300" font-family="system-ui, -apple-system, sans-serif" font-size="200" font-weight="700" fill="white" text-anchor="middle">${initials}</text>
-</svg>`;
-}
-
-function generateFaviconSvg(appName: string, color: string): string {
-  const initial = appName[0].toUpperCase();
-  const hexColor = COLOR_HEX[color] || COLOR_HEX.indigo;
-
-  return `<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="32" height="32" rx="6" fill="${hexColor}"/>
-  <text x="16" y="22" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="white" text-anchor="middle">${initial}</text>
-</svg>`;
-}
+// Add preview property to color themes for display
+const COLOR_THEMES_WITH_PREVIEW = Object.fromEntries(
+  Object.entries(COLOR_THEMES).map(([key, theme]) => [
+    key,
+    { ...theme, preview: chalk.hex(theme.hex)("████") },
+  ])
+) as Record<keyof typeof COLOR_THEMES, (typeof COLOR_THEMES)[keyof typeof COLOR_THEMES] & { preview: string }>;
 
 function printBanner() {
   console.clear();
@@ -236,19 +66,6 @@ function printBanner() {
   console.log();
 }
 
-function validateProjectName(name: string): string | undefined {
-  if (!name || name.trim().length === 0) {
-    return "Project name is required";
-  }
-  if (!/^[a-z0-9-]+$/.test(name)) {
-    return "Project name can only contain lowercase letters, numbers, and hyphens";
-  }
-  if (name.startsWith("-") || name.endsWith("-")) {
-    return "Project name cannot start or end with a hyphen";
-  }
-  return undefined;
-}
-
 async function getProjectConfig(): Promise<ProjectConfig | null> {
   p.intro(chalk.bgHex("#ff6b35").white(" Let's cook up your app "));
 
@@ -265,29 +82,18 @@ async function getProjectConfig(): Promise<ProjectConfig | null> {
         p.text({
           message: "What's your app display name?",
           placeholder: results.projectName
-            ? results.projectName
-                .split("-")
-                .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-                .join(" ")
+            ? projectNameToDisplayName(results.projectName)
             : "My Awesome App",
           initialValue: results.projectName
-            ? results.projectName
-                .split("-")
-                .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-                .join(" ")
+            ? projectNameToDisplayName(results.projectName)
             : "",
-          validate: (value) => {
-            if (!value || value.trim().length === 0) {
-              return "App name is required";
-            }
-            return undefined;
-          },
+          validate: validateAppName,
         }),
 
       colorTheme: () =>
         p.select({
           message: "Pick your brand color",
-          options: Object.entries(COLOR_THEMES).map(([key, theme]) => ({
+          options: Object.entries(COLOR_THEMES_WITH_PREVIEW).map(([key, theme]) => ({
             value: key,
             label: `${theme.preview} ${theme.name}`,
             hint: theme.description,
@@ -324,13 +130,7 @@ async function getProjectConfig(): Promise<ProjectConfig | null> {
           message: "Frontend port?",
           placeholder: "3000",
           initialValue: "3000",
-          validate: (value) => {
-            const port = parseInt(value, 10);
-            if (isNaN(port) || port < 1024 || port > 65535) {
-              return "Port must be between 1024 and 65535";
-            }
-            return undefined;
-          },
+          validate: validatePort,
         }),
 
       backendPort: () =>
@@ -338,13 +138,7 @@ async function getProjectConfig(): Promise<ProjectConfig | null> {
           message: "Backend port?",
           placeholder: "8000",
           initialValue: "8000",
-          validate: (value) => {
-            const port = parseInt(value, 10);
-            if (isNaN(port) || port < 1024 || port > 65535) {
-              return "Port must be between 1024 and 65535";
-            }
-            return undefined;
-          },
+          validate: validatePort,
         }),
 
       includeDocker: () =>
@@ -438,92 +232,37 @@ async function scaffoldProject(config: ProjectConfig) {
   };
 
   // Apply all templates
-  applyTemplate("backend.env.hbs", "backend/.env.example");
-  applyTemplate("backend.env.test.hbs", "backend/.env.test");
-  applyTemplate("frontend.env.hbs", "frontend/.env.example");
-  applyTemplate("requirements.txt.hbs", "backend/requirements.txt");
-  applyTemplate("config.py.hbs", "backend/app/core/config.py");
-  applyTemplate("billing-providers-init.py.hbs", "backend/app/billing/providers/__init__.py");
-  applyTemplate("billing-enums.py.hbs", "backend/app/billing/enums.py");
-  applyTemplate("billing-models.py.hbs", "backend/app/billing/models.py");
-  applyTemplate("billing-routes.py.hbs", "backend/app/billing/routes.py");
-  applyTemplate("email-providers-init.py.hbs", "backend/app/emails/providers/__init__.py");
-  applyTemplate("email-enums.py.hbs", "backend/app/emails/enums.py");
-  applyTemplate("email-service.py.hbs", "backend/app/emails/service.py");
-  applyTemplate("backend-makefile.hbs", "backend/Makefile");
-  applyTemplate("frontend-makefile.hbs", "frontend/Makefile");
-  applyTemplate("test-email-providers.py.hbs", "backend/tests/unit/emails/test_providers.py");
-  applyTemplate("test-email-factories.py.hbs", "backend/tests/unit/emails/factories.py");
-  applyTemplate("test-email-service.py.hbs", "backend/tests/unit/emails/test_service.py");
-  applyTemplate("test-email-schemas.py.hbs", "backend/tests/unit/emails/test_schemas.py");
-  applyTemplate("test-billing-enums.py.hbs", "backend/tests/unit/billing/test_enums.py");
-  applyTemplate("test-billing-models.py.hbs", "backend/tests/unit/billing/test_models.py");
-  applyTemplate("test-billing-routes.py.hbs", "backend/tests/unit/billing/test_routes.py");
-  applyTemplate("test-config.py.hbs", "backend/tests/unit/core/test_config.py");
-  applyTemplate("conftest.py.hbs", "backend/tests/conftest.py");
-  applyTemplate("gitignore.hbs", ".gitignore");
-
-  // Docker files (only if user selected)
-  if (config.includeDocker) {
-    applyTemplate("docker-compose.yml.hbs", "docker-compose.yml");
-    applyTemplate("backend-dockerfile.hbs", "backend/Dockerfile");
-    applyTemplate("frontend-dockerfile.hbs", "frontend/Dockerfile");
-    applyTemplate("backend-dockerignore.hbs", "backend/.dockerignore");
-    applyTemplate("frontend-dockerignore.hbs", "frontend/.dockerignore");
+  const templateFiles = getTemplateFiles(config.includeDocker);
+  for (const [templateName, outputPath] of templateFiles) {
+    applyTemplate(templateName, outputPath);
   }
 
-  // Remove unused payment provider files
+  // Remove unused provider files
+  const filesToRemove = getFilesToRemove(config.paymentProvider, config.emailProvider);
+
   const paymentProvidersDir = path.join(targetDir, "backend", "app", "billing", "providers");
-  const paymentFiles: Record<string, string> = {
-    nomba: "nomba.py",
-    stripe: "stripe.py",
-    paystack: "paystack.py",
-  };
-  for (const [provider, filename] of Object.entries(paymentFiles)) {
-    if (provider !== config.paymentProvider) {
-      const filePath = path.join(paymentProvidersDir, filename);
-      if (fs.existsSync(filePath)) fs.removeSync(filePath);
-    }
+  for (const filename of filesToRemove.paymentFiles) {
+    const filePath = path.join(paymentProvidersDir, filename);
+    if (fs.existsSync(filePath)) fs.removeSync(filePath);
   }
 
-  // Remove unused email provider files
   const emailProvidersDir = path.join(targetDir, "backend", "app", "emails", "providers");
-  const emailFiles: Record<string, string> = {
-    resend: "resend.py",
-    brevo: "brevo.py",
-  };
-  for (const [provider, filename] of Object.entries(emailFiles)) {
-    if (provider !== config.emailProvider && config.emailProvider !== "none") {
-      const filePath = path.join(emailProvidersDir, filename);
-      if (fs.existsSync(filePath)) fs.removeSync(filePath);
-    }
-  }
-  if (config.emailProvider === "none") {
-    for (const filename of Object.values(emailFiles)) {
-      const filePath = path.join(emailProvidersDir, filename);
-      if (fs.existsSync(filePath)) fs.removeSync(filePath);
-    }
+  for (const filename of filesToRemove.emailFiles) {
+    const filePath = path.join(emailProvidersDir, filename);
+    if (fs.existsSync(filePath)) fs.removeSync(filePath);
   }
 
-  // Remove unused payment provider tests
   const billingTestsDir = path.join(targetDir, "backend", "tests", "unit", "billing");
-  const paymentTestFiles: Record<string, string> = {
-    nomba: "test_nomba_provider.py",
-    stripe: "test_stripe_provider.py",
-    paystack: "test_paystack_provider.py",
-  };
-  for (const [provider, filename] of Object.entries(paymentTestFiles)) {
-    if (provider !== config.paymentProvider) {
-      const filePath = path.join(billingTestsDir, filename);
-      if (fs.existsSync(filePath)) fs.removeSync(filePath);
-    }
+  for (const filename of filesToRemove.paymentTestFiles) {
+    const filePath = path.join(billingTestsDir, filename);
+    if (fs.existsSync(filePath)) fs.removeSync(filePath);
   }
 
   // Update tailwind.config.ts with selected color
   const tailwindPath = path.join(targetDir, "frontend", "tailwind.config.ts");
   if (fs.existsSync(tailwindPath)) {
     let content = fs.readFileSync(tailwindPath, "utf-8");
-    content = content.replace(/primary:\s*colors\.\w+/g, `primary: colors.${ctx.primaryColor}`);
+    content = updateTailwindConfig(content, ctx.primaryColor);
     fs.writeFileSync(tailwindPath, content);
   }
 
@@ -653,9 +392,9 @@ function printNextSteps(targetDir: string, config: ProjectConfig) {
   console.log(chalk.hex("#ffb088")("  App:      ") + chalk.white(config.appName));
   console.log(
     chalk.hex("#ffb088")("  Color:    ") +
-      COLOR_THEMES[config.colorTheme].preview +
+      COLOR_THEMES_WITH_PREVIEW[config.colorTheme].preview +
       " " +
-      chalk.white(COLOR_THEMES[config.colorTheme].name)
+      chalk.white(COLOR_THEMES_WITH_PREVIEW[config.colorTheme].name)
   );
   console.log(chalk.hex("#ffb088")("  Payment:  ") + chalk.white(PAYMENT_PROVIDERS[config.paymentProvider].name));
   console.log(chalk.hex("#ffb088")("  Email:    ") + chalk.white(EMAIL_PROVIDERS[config.emailProvider].name));
@@ -698,10 +437,7 @@ async function main() {
   if (args[0]) {
     const quickConfig: ProjectConfig = {
       projectName: args[0],
-      appName: args[0]
-        .split("-")
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(" "),
+      appName: projectNameToDisplayName(args[0]),
       colorTheme: (options.theme as keyof typeof COLOR_THEMES) || "indigo",
       paymentProvider: (options.payment as keyof typeof PAYMENT_PROVIDERS) || "nomba",
       emailProvider: (options.email as keyof typeof EMAIL_PROVIDERS) || "resend",
