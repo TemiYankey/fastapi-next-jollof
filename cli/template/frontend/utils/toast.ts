@@ -56,10 +56,9 @@ export const toast = {
       loading: string;
       success: string | ((data: T) => string);
       error: string | ((err: unknown) => string);
-    },
-    options?: ToastOptions
+    }
   ) => {
-    return sonnerToast.promise(promise, { loading, success, error }, options);
+    return sonnerToast.promise(promise, { loading, success, error });
   },
 
   /**
