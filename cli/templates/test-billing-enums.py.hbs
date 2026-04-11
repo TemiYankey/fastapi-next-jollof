@@ -57,14 +57,14 @@ class TestPaymentStatus:
         """Test cancelled status value."""
         assert PaymentStatus.CANCELLED.value == "cancelled"
 
-    def test_refunded_status(self):
-        """Test refunded status value."""
-        assert PaymentStatus.REFUNDED.value == "refunded"
+    def test_expired_status(self):
+        """Test expired status value."""
+        assert PaymentStatus.EXPIRED.value == "expired"
 
     def test_all_statuses_available(self):
         """Test all expected statuses are available."""
         status_values = {s.value for s in PaymentStatus}
-        assert status_values == {"pending", "success", "failed", "cancelled", "refunded"}
+        assert status_values == {"pending", "success", "failed", "cancelled", "expired"}
 
 
 class TestPaymentMethod:
@@ -78,18 +78,14 @@ class TestPaymentMethod:
         """Test bank transfer payment method."""
         assert PaymentMethod.BANK_TRANSFER.value == "bank_transfer"
 
-    def test_ussd_method(self):
-        """Test USSD payment method."""
-        assert PaymentMethod.USSD.value == "ussd"
-
-    def test_qr_method(self):
-        """Test QR payment method."""
-        assert PaymentMethod.QR.value == "qr"
+    def test_unknown_method(self):
+        """Test unknown payment method."""
+        assert PaymentMethod.UNKNOWN.value == "unknown"
 
     def test_all_methods_available(self):
         """Test all expected methods are available."""
         method_values = {m.value for m in PaymentMethod}
-        assert method_values == {"card", "bank_transfer", "ussd", "qr"}
+        assert method_values == {"card", "bank_transfer", "unknown"}
 
 
 class TestEnumComparisons:

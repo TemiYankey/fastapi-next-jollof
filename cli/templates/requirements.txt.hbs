@@ -8,11 +8,9 @@ uvicorn[standard]==0.38.0
 pydantic[email]==2.12.5
 pydantic-settings==2.12.0
 
-# Database - SQLAlchemy 2.0
-sqlalchemy[asyncio]==2.0.44
-asyncpg==0.30.0
-alembic==1.17.2
-greenlet==3.3.0
+# Database - Tortoise ORM
+tortoise-orm[asyncpg]==0.21.7
+asyncpg==0.31.0
 
 # Redis
 redis==7.1.0

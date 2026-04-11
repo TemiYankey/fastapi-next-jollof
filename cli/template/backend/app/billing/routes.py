@@ -1,18 +1,15 @@
-"""Billing routes using SQLAlchemy 2.0 - Nomba provider (tested)."""
+"""Billing routes - Nomba provider (tested)."""
 
 import hashlib
 import hmac
 import logging
 import uuid
+from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.base.datetime import utcnow
 from app.core.config import settings
-from app.core.database import get_db
 from app.core.rate_limiter import (
     CHECKOUT_LIMIT,
     GENERAL_LIMIT,
@@ -35,8 +32,13 @@ from app.billing.schemas import (
 from app.users.auth import get_current_user
 from app.users.models import User
 
-router = APIRouter()
+router = APIRouter(prefix="/billing", tags=["Billing"])
 logger = logging.getLogger("app.billing")
+
+
+def utcnow():
+    """Get current UTC datetime."""
+    return datetime.now(timezone.utc)
 
 
 def verify_nomba_webhook_signature(payload: bytes, signature: str, secret: str) -> bool:
@@ -55,7 +57,6 @@ async def create_checkout_session(
     request: Request,
     checkout_data: CheckoutRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
     """Create checkout session for plan purchase using Nomba."""
     reference = f"pay_{uuid.uuid4().hex[:12]}"
@@ -82,8 +83,8 @@ async def create_checkout_session(
         )
 
     # Create payment record
-    payment = Payment(
-        user_id=current_user.id,
+    payment = await Payment.create(
+        user=current_user,
         plan_id=checkout_data.plan_id,
         plan_name=checkout_data.plan_name,
         credits_purchased=checkout_data.credits,
@@ -94,8 +95,6 @@ async def create_checkout_session(
         checkout_url=nomba_response.checkout_url or "",
         status=PaymentStatus.PENDING,
     )
-    db.add(payment)
-    await db.flush()
 
     return CheckoutResponse(
         success=True,
@@ -114,20 +113,13 @@ async def verify_payment(
     request: Request,
     reference: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Verify payment and add credits to user account.
-
-    Uses row locking to prevent race conditions with webhook processing.
     """
-    # Get payment with row locking
-    result = await db.execute(
-        select(Payment)
-        .where(Payment.reference == reference, Payment.user_id == current_user.id)
-        .with_for_update()
-    )
-    payment = result.scalar_one_or_none()
+    payment = await Payment.filter(
+        reference=reference, user=current_user
+    ).first()
 
     if not payment:
         raise HTTPException(
@@ -136,7 +128,7 @@ async def verify_payment(
 
     # Idempotency: Skip if already successful
     if payment.status == PaymentStatus.SUCCESS:
-        await db.refresh(current_user)
+        await current_user.refresh_from_db()
         return PaymentVerificationResponse(
             success=True,
             verified=True,
@@ -173,12 +165,12 @@ async def verify_payment(
         payment.completed_at = verification.paid_at or now
         payment.provider_payment_reference = verification.provider_reference or ""
         payment.raw_response = verification.raw_response or {}
+        await payment.save()
 
         # Add credits to user account
         current_user.credits += payment.credits_purchased
         current_user.last_purchase_date = now
-
-        await db.flush()
+        await current_user.save()
 
         logger.info(
             f"Verification: Added {payment.credits_purchased} credits to user {current_user.id} "
@@ -212,17 +204,9 @@ async def verify_payment(
 
 @router.get("/plans", response_model=List[PlanResponse])
 @limiter.limit(PUBLIC_LIMIT)
-async def get_plans(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-):
+async def get_plans(request: Request):
     """Get active billing plans."""
-    result = await db.execute(
-        select(Plan)
-        .where(Plan.is_active == True)
-        .order_by(Plan.price)
-    )
-    plans = result.scalars().all()
+    plans = await Plan.filter(is_active=True).order_by("price").all()
     return plans
 
 
@@ -231,29 +215,21 @@ async def get_plans(
 async def get_credits_overview(
     request: Request,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
     """Get comprehensive credits overview including balance and purchase history."""
     # Get all successful purchases
-    result = await db.execute(
-        select(Payment).where(
-            Payment.user_id == current_user.id, Payment.status == PaymentStatus.SUCCESS
-        )
-    )
-    successful_purchases = result.scalars().all()
+    successful_purchases = await Payment.filter(
+        user=current_user, status=PaymentStatus.SUCCESS
+    ).all()
 
     # Calculate totals
     total_purchased = sum(p.credits_purchased for p in successful_purchases)
     total_spent = sum(float(p.amount) for p in successful_purchases)
 
     # Get recent purchase history (last 20)
-    result = await db.execute(
-        select(Payment)
-        .where(Payment.user_id == current_user.id)
-        .order_by(Payment.created_at.desc())
-        .limit(20)
-    )
-    recent_purchases = result.scalars().all()
+    recent_purchases = await Payment.filter(
+        user=current_user
+    ).order_by("-created_at").limit(20).all()
 
     return CreditsOverviewResponse(
         current_balance=current_user.credits,
@@ -281,17 +257,13 @@ async def get_credits_overview(
 
 @router.post("/webhook/nomba")
 @limiter.limit(WEBHOOK_LIMIT)
-async def nomba_webhook(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-):
+async def nomba_webhook(request: Request):
     """
     Handle Nomba webhook with security and idempotency.
 
     Security measures:
     1. Signature verification (HMAC-SHA512)
     2. Idempotency check (only process PENDING payments)
-    3. Row locking to prevent race conditions with frontend verification
     """
     body = await request.body()
 
@@ -324,11 +296,8 @@ async def nomba_webhook(
             logger.warning("Webhook payload missing order reference")
             return {"status": "received", "processed": False}
 
-        # Get payment with row locking
-        db_result = await db.execute(
-            select(Payment).where(Payment.reference == order_ref).with_for_update()
-        )
-        payment = db_result.scalar_one_or_none()
+        # Get payment
+        payment = await Payment.filter(reference=order_ref).first()
 
         if not payment:
             logger.warning(f"Payment not found for reference: {order_ref}")
@@ -348,15 +317,14 @@ async def nomba_webhook(
             payment.completed_at = utcnow()
             payment.provider_payment_reference = result.get("payment_reference", "")
             payment.raw_response = result.get("raw_payload", {})
+            await payment.save()
 
             # Get user and add credits
-            user_result = await db.execute(
-                select(User).where(User.id == payment.user_id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await User.filter(id=payment.user_id).first()
             if user:
                 user.credits += payment.credits_purchased
                 user.last_purchase_date = utcnow()
+                await user.save()
 
             logger.info(
                 f"Webhook: Added {payment.credits_purchased} credits to user {payment.user_id} "
@@ -366,9 +334,9 @@ async def nomba_webhook(
         elif result["status"] == "failed":
             payment.status = PaymentStatus.FAILED
             payment.raw_response = result.get("raw_payload", {})
+            await payment.save()
             logger.info(f"Webhook: Payment {order_ref} marked as failed")
 
-        await db.flush()
         return {"status": "received", "processed": True}
 
     except HTTPException:

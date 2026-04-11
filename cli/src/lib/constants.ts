@@ -92,6 +92,22 @@ export const EMAIL_PROVIDERS = {
   },
 } as const;
 
+// Project types
+export const PROJECT_TYPES = {
+  fullstack: {
+    name: "Full Stack",
+    description: "Both FastAPI backend and Next.js frontend",
+  },
+  backend: {
+    name: "Backend Only",
+    description: "FastAPI backend with authentication & payments",
+  },
+  frontend: {
+    name: "Frontend Only",
+    description: "Next.js frontend with Supabase auth",
+  },
+} as const;
+
 // Color hex values for SVG generation
 export const COLOR_HEX: Record<string, string> = {
   indigo: "#6366f1",
@@ -108,3 +124,4 @@ export const COLOR_HEX: Record<string, string> = {
 export type ColorTheme = keyof typeof COLOR_THEMES;
 export type PaymentProvider = keyof typeof PAYMENT_PROVIDERS;
 export type EmailProvider = keyof typeof EMAIL_PROVIDERS;
+export type ProjectType = keyof typeof PROJECT_TYPES;

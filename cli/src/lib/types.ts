@@ -2,11 +2,12 @@
  * CLI type definitions.
  */
 
-import type { ColorTheme, PaymentProvider, EmailProvider } from "./constants.js";
+import type { ColorTheme, PaymentProvider, EmailProvider, ProjectType } from "./constants.js";
 
 export interface ProjectConfig {
   projectName: string;
   appName: string;
+  projectType: ProjectType;
   colorTheme: ColorTheme;
   paymentProvider: PaymentProvider;
   emailProvider: EmailProvider;

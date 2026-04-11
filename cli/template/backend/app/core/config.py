@@ -16,13 +16,15 @@ class Settings(BaseAppSettings):
     debug: bool = False
     environment: str = "development"  # development, staging, production, testing
     allowed_hosts: list[str] = ["*"]
+    host: str = "0.0.0.0"
+    port: int = 8000
 
     # Theme/Branding - CUSTOMIZE FOR YOUR PROJECT
     primary_color: str = "#6366f1"  # Indigo
     secondary_color: str = "#ec4899"  # Pink
 
-    # Database
-    database_url: str = "postgresql+asyncpg://user:password@localhost:5432/jollofdb"
+    # Database (Tortoise ORM format)
+    database_url: str = "postgres://user:password@localhost:5432/jollofdb"
 
     # Supabase Auth
     supabase_url: str = ""

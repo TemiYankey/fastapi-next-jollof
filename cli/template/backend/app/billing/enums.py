@@ -10,7 +10,7 @@ class PaymentStatus(str, Enum):
     SUCCESS = "success"
     FAILED = "failed"
     CANCELLED = "cancelled"
-    REFUNDED = "refunded"
+    EXPIRED = "expired"
 
 
 class PaymentMethod(str, Enum):
@@ -18,13 +18,11 @@ class PaymentMethod(str, Enum):
 
     CARD = "card"
     BANK_TRANSFER = "bank_transfer"
-    USSD = "ussd"
-    QR = "qr"
+    UNKNOWN = "unknown"
 
 
 class PaymentProvider(str, Enum):
     """Supported payment providers."""
 
     NOMBA = "nomba"
-    PAYSTACK = "paystack"
     STRIPE = "stripe"

@@ -14,20 +14,11 @@ logger = logging.getLogger("app.users.jwt")
 
 
 class JWTDecoder:
-    """Decode and validate JWT tokens locally."""
+    """Decode and validate JWT tokens using JWKS (public key verification)."""
 
-    def __init__(self, jwt_secret: Optional[str] = None):
-        """
-        Initialize JWT decoder.
-
-        Args:
-            jwt_secret: JWT secret for verification (defaults to settings)
-        """
-        self.jwt_secret = jwt_secret or settings.supabase_jwt_secret
-        self.algorithms = [
-            "RS256",
-            "ES256",
-        ]  # Support both symmetric and asymmetric
+    def __init__(self):
+        """Initialize JWT decoder with JWKS-based verification."""
+        self.algorithms = ["RS256", "ES256"]  # Asymmetric algorithms only
         self.jwks_redis_key = "supabase:jwks"  # Redis key for JWKS cache
 
     async def get_jwks(self, bypass_cache: bool = False) -> Dict[str, Any]:
@@ -144,6 +135,7 @@ class JWTDecoder:
                     logger.error(
                         f"SECURITY ALERT: Invalid key ID '{kid}' not found in Supabase JWKS - possible JWT attack attempt"
                     )
+                    # Log additional details for security analysis
                     logger.error(f"Token header: {header}")
                     return None
                 else:
@@ -187,16 +179,20 @@ class JWTDecoder:
                 logger.warning("Could not determine signing key for token")
                 return None
 
+            # Build expected issuer from Supabase URL
+            expected_issuer = f"{settings.supabase_url}/auth/v1"
+
             # Decode token with dynamic key
             payload = jwt.decode(
                 token,
                 signing_key,
                 algorithms=self.algorithms,
+                issuer=expected_issuer,
                 options={
                     "verify_signature": verify_signature,
                     "verify_exp": verify_exp,
-                    "verify_aud": False,  # Don't verify audience for now
-                    "verify_iss": False,  # Don't verify issuer for now
+                    "verify_aud": False,  # Supabase uses 'authenticated' role, not audience
+                    "verify_iss": True,  # Verify issuer matches Supabase
                     "leeway": 60,  # 60 second clock tolerance
                 },
             )

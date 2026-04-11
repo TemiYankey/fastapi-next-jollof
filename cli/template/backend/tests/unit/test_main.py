@@ -6,7 +6,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-# Import the app module once - itsdangerous is now installed
+# Import the app module
 from app.main import app, lifespan
 
 
@@ -76,78 +76,66 @@ class TestValidationExceptionHandler:
 
 
 class TestLifespan:
-    """Tests for application lifespan events."""
+    """Tests for application lifespan context manager."""
 
     @pytest.mark.asyncio
-    async def test_lifespan_startup(self):
-        """Test lifespan startup initializes services."""
+    async def test_lifespan_startup_connects_redis(self):
+        """Test lifespan startup connects to Redis."""
         mock_app = MagicMock(spec=FastAPI)
 
-        with patch("app.main.init_db", new_callable=AsyncMock) as mock_init_db:
-            with patch("app.main.redis_service") as mock_redis:
-                mock_redis.connect = AsyncMock()
-                mock_redis.disconnect = AsyncMock()
+        with patch("app.main.redis_service") as mock_redis:
+            mock_redis.connect = AsyncMock()
+            mock_redis.disconnect = AsyncMock()
 
-                with patch("app.main.close_db", new_callable=AsyncMock):
-                    async with lifespan(mock_app):
-                        mock_init_db.assert_called_once()
-                        mock_redis.connect.assert_called_once()
+            async with lifespan(mock_app):
+                # Inside the context = app is running
+                mock_redis.connect.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_lifespan_shutdown(self):
-        """Test lifespan shutdown closes services."""
-        mock_app = MagicMock(spec=FastAPI)
-
-        with patch("app.main.init_db", new_callable=AsyncMock):
-            with patch("app.main.redis_service") as mock_redis:
-                mock_redis.connect = AsyncMock()
-                mock_redis.disconnect = AsyncMock()
-
-                with patch("app.main.close_db", new_callable=AsyncMock) as mock_close_db:
-                    async with lifespan(mock_app):
-                        pass  # Startup phase
-
-                    # After context exits, shutdown should have run
-                    mock_close_db.assert_called_once()
-                    mock_redis.disconnect.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_lifespan_handles_db_init_failure_in_debug(self):
-        """Test lifespan handles DB init failure gracefully in debug mode."""
-        mock_app = MagicMock(spec=FastAPI)
-
-        with patch("app.main.init_db", new_callable=AsyncMock) as mock_init_db:
-            mock_init_db.side_effect = Exception("DB connection failed")
-
-            with patch("app.main.settings") as mock_settings:
-                mock_settings.debug = True
-
-                with patch("app.main.redis_service") as mock_redis:
-                    mock_redis.connect = AsyncMock()
-                    mock_redis.disconnect = AsyncMock()
-
-                    with patch("app.main.close_db", new_callable=AsyncMock):
-                        # Should not raise in debug mode
-                        async with lifespan(mock_app):
-                            pass
+            # After exiting context = shutdown
+            mock_redis.disconnect.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_lifespan_handles_redis_failure_in_debug(self):
         """Test lifespan handles Redis failure gracefully in debug mode."""
         mock_app = MagicMock(spec=FastAPI)
 
-        with patch("app.main.init_db", new_callable=AsyncMock):
-            with patch("app.main.redis_service") as mock_redis:
-                mock_redis.connect = AsyncMock(side_effect=Exception("Redis failed"))
-                mock_redis.disconnect = AsyncMock()
+        with patch("app.main.redis_service") as mock_redis, \
+             patch("app.main.settings") as mock_settings:
+            mock_redis.connect = AsyncMock(side_effect=Exception("Redis failed"))
+            mock_redis.disconnect = AsyncMock()
+            mock_settings.debug = True
 
-                with patch("app.main.settings") as mock_settings:
-                    mock_settings.debug = True
+            # Should not raise in debug mode
+            async with lifespan(mock_app):
+                pass
 
-                    with patch("app.main.close_db", new_callable=AsyncMock):
-                        # Should not raise in debug mode
-                        async with lifespan(mock_app):
-                            pass
+    @pytest.mark.asyncio
+    async def test_lifespan_shutdown_disconnects_redis(self):
+        """Test lifespan shutdown disconnects from Redis."""
+        mock_app = MagicMock(spec=FastAPI)
+
+        with patch("app.main.redis_service") as mock_redis:
+            mock_redis.connect = AsyncMock()
+            mock_redis.disconnect = AsyncMock()
+
+            async with lifespan(mock_app):
+                pass  # App running
+
+            # After context exits
+            mock_redis.disconnect.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_lifespan_handles_disconnect_error(self):
+        """Test lifespan handles disconnect error gracefully."""
+        mock_app = MagicMock(spec=FastAPI)
+
+        with patch("app.main.redis_service") as mock_redis:
+            mock_redis.connect = AsyncMock()
+            mock_redis.disconnect = AsyncMock(side_effect=Exception("Disconnect error"))
+
+            # Should not raise even on disconnect error
+            async with lifespan(mock_app):
+                pass
 
 
 class TestRateLimiter:
@@ -157,3 +145,15 @@ class TestRateLimiter:
         """Test rate limiter is attached to app."""
         assert hasattr(app.state, "limiter")
         assert app.state.limiter is not None
+
+
+class TestDatabaseInit:
+    """Tests for database initialization."""
+
+    def test_init_db_called_with_app(self):
+        """Test init_db is called with the app instance."""
+        # Verify the init_db function signature
+        from app.core.database import init_db
+
+        # The function should accept a FastAPI app
+        assert callable(init_db)

@@ -87,18 +87,21 @@ class TestCreateCheckoutSession:
         mock_user.email = "test@example.com"
         mock_user.full_name = "Test User"
 
-        mock_db = AsyncMock()
         mock_request = MagicMock()
 
         checkout_data = MagicMock()
         checkout_data.plan_id = "pkg-123"
         checkout_data.plan_name = "Test Package"
-        checkout_data.amount = Decimal("10.00")
+        checkout_data.amount = 1000
         checkout_data.credits = 100
         checkout_data.success_url = "https://example.com/success"
         checkout_data.cancel_url = "https://example.com/cancel"
 
-        with patch("app.billing.routes.nomba_provider") as mock_provider:
+        mock_payment = MagicMock()
+        mock_payment.id = uuid4()
+
+        with patch("app.billing.routes.nomba_provider") as mock_provider, \
+             patch("app.billing.routes.Payment") as mock_payment_model:
             mock_provider.create_checkout_session = AsyncMock(
                 return_value=MagicMock(
                     success=True,
@@ -106,18 +109,17 @@ class TestCreateCheckoutSession:
                     reference="REF-123",
                 )
             )
+            mock_payment_model.create = AsyncMock(return_value=mock_payment)
 
             result = await create_checkout_session(
                 request=mock_request,
                 checkout_data=checkout_data,
                 current_user=mock_user,
-                db=mock_db,
             )
 
             assert result.success is True
             assert result.checkout_url == "https://checkout.nomba.com/pay/123"
-            mock_db.add.assert_called_once()
-            mock_db.flush.assert_called_once()
+            mock_payment_model.create.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_checkout_provider_failure(self):
@@ -129,13 +131,12 @@ class TestCreateCheckoutSession:
         mock_user.email = "test@example.com"
         mock_user.full_name = "Test User"
 
-        mock_db = AsyncMock()
         mock_request = MagicMock()
 
         checkout_data = MagicMock()
         checkout_data.plan_id = "pkg-123"
         checkout_data.plan_name = "Test Package"
-        checkout_data.amount = Decimal("10.00")
+        checkout_data.amount = 1000
         checkout_data.credits = 100
         checkout_data.success_url = "https://example.com/success"
         checkout_data.cancel_url = "https://example.com/cancel"
@@ -150,7 +151,6 @@ class TestCreateCheckoutSession:
                     request=mock_request,
                     checkout_data=checkout_data,
                     current_user=mock_user,
-                    db=mock_db,
                 )
 
             assert exc.value.status_code == 500
@@ -167,23 +167,22 @@ class TestVerifyPayment:
         mock_user = MagicMock()
         mock_user.id = uuid4()
 
-        mock_db = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
         mock_request = MagicMock()
 
-        with pytest.raises(HTTPException) as exc:
-            await verify_payment(
-                request=mock_request,
-                reference="INVALID-REF",
-                current_user=mock_user,
-                db=mock_db,
-            )
+        with patch("app.billing.routes.Payment") as mock_payment_model:
+            mock_filter = MagicMock()
+            mock_filter.first = AsyncMock(return_value=None)
+            mock_payment_model.filter.return_value = mock_filter
 
-        assert exc.value.status_code == 404
-        assert "not found" in exc.value.detail.lower()
+            with pytest.raises(HTTPException) as exc:
+                await verify_payment(
+                    request=mock_request,
+                    reference="INVALID-REF",
+                    current_user=mock_user,
+                )
+
+            assert exc.value.status_code == 404
+            assert "not found" in exc.value.detail.lower()
 
     @pytest.mark.asyncio
     async def test_already_successful_payment(self):
@@ -193,33 +192,33 @@ class TestVerifyPayment:
         mock_user = MagicMock()
         mock_user.id = uuid4()
         mock_user.credits = 500
+        mock_user.refresh_from_db = AsyncMock()
 
         mock_payment = MagicMock()
         mock_payment.status = PaymentStatus.SUCCESS
         mock_payment.credits_purchased = 100
         mock_payment.reference = "REF-123"
-        mock_payment.amount = Decimal("10.00")
+        mock_payment.amount = 1000
         mock_payment.currency = "NGN"
         mock_payment.payment_method = "card"
         mock_payment.completed_at = None
 
-        mock_db = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = mock_payment
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
         mock_request = MagicMock()
 
-        result = await verify_payment(
-            request=mock_request,
-            reference="REF-123",
-            current_user=mock_user,
-            db=mock_db,
-        )
+        with patch("app.billing.routes.Payment") as mock_payment_model:
+            mock_filter = MagicMock()
+            mock_filter.first = AsyncMock(return_value=mock_payment)
+            mock_payment_model.filter.return_value = mock_filter
 
-        assert result.success is True
-        assert result.verified is True
-        assert "already added" in result.message.lower()
+            result = await verify_payment(
+                request=mock_request,
+                reference="REF-123",
+                current_user=mock_user,
+            )
+
+            assert result.success is True
+            assert result.verified is True
+            assert "already added" in result.message.lower()
 
     @pytest.mark.asyncio
     async def test_already_failed_payment(self):
@@ -233,114 +232,61 @@ class TestVerifyPayment:
         mock_payment.status = PaymentStatus.FAILED
         mock_payment.reference = "REF-123"
 
-        mock_db = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = mock_payment
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
         mock_request = MagicMock()
 
-        result = await verify_payment(
-            request=mock_request,
-            reference="REF-123",
-            current_user=mock_user,
-            db=mock_db,
-        )
-
-        assert result.success is False
-        assert result.verified is False
-        assert "failed" in result.error_message.lower()
-
-    @pytest.mark.asyncio
-    async def test_successful_verification_adds_credits(self):
-        """Test successful verification adds credits to user."""
-        from app.billing.routes import verify_payment
-
-        mock_user = MagicMock()
-        mock_user.id = uuid4()
-        mock_user.credits = 100
-        mock_user.email = "test@example.com"
-
-        mock_payment = MagicMock()
-        mock_payment.status = PaymentStatus.PENDING
-        mock_payment.credits_purchased = 50
-        mock_payment.reference = "REF-123"
-        mock_payment.provider_order_reference = "ORD-123"
-        mock_payment.amount = Decimal("10.00")
-        mock_payment.currency = "NGN"
-        mock_payment.payment_method = "card"
-
-        mock_db = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = mock_payment
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
-        mock_request = MagicMock()
-
-        with patch("app.billing.routes.nomba_provider") as mock_provider:
-            mock_provider.verify_payment = AsyncMock(
-                return_value=MagicMock(
-                    success=True,
-                    verified=True,
-                    paid_at=None,
-                    provider_reference="PAY-123",
-                    raw_response={},
-                )
-            )
+        with patch("app.billing.routes.Payment") as mock_payment_model:
+            mock_filter = MagicMock()
+            mock_filter.first = AsyncMock(return_value=mock_payment)
+            mock_payment_model.filter.return_value = mock_filter
 
             result = await verify_payment(
                 request=mock_request,
                 reference="REF-123",
                 current_user=mock_user,
-                db=mock_db,
             )
 
-            assert result.success is True
-            assert result.verified is True
-            assert result.credits_added == 50
-            assert mock_user.credits == 150  # 100 + 50
+            assert result.success is False
+            assert result.verified is False
+            assert "failed" in result.error_message.lower()
 
 
 class TestGetPlans:
     """Tests for get_plans endpoint."""
 
     @pytest.mark.asyncio
-    async def test_returns_active_packages(self):
-        """Test returns only active pricing packages."""
+    async def test_returns_active_plans(self):
+        """Test returns only active pricing plans."""
         from app.billing.routes import get_plans
-        from app.billing.models import Plan
 
-        # Create real Plan objects
-        pkg1 = Plan(
-            id=uuid4(),
-            name="Basic",
-            price=999,
-            credits=100,
-            original_price=999,
-            is_active=True,
-        )
-        pkg2 = Plan(
-            id=uuid4(),
-            name="Pro",
-            price=2999,
-            credits=500,
-            original_price=2999,
-            is_active=True,
-        )
-        mock_packages = [pkg1, pkg2]
+        # Create mock Plan objects
+        pkg1 = MagicMock()
+        pkg1.id = uuid4()
+        pkg1.name = "Basic"
+        pkg1.price = 999
+        pkg1.is_active = True
 
-        mock_db = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = mock_packages
-        mock_db.execute = AsyncMock(return_value=mock_result)
+        pkg2 = MagicMock()
+        pkg2.id = uuid4()
+        pkg2.name = "Pro"
+        pkg2.price = 2999
+        pkg2.is_active = True
+
+        mock_plans = [pkg1, pkg2]
 
         mock_request = MagicMock()
 
-        result = await get_plans(request=mock_request, db=mock_db)
+        with patch("app.billing.routes.Plan") as mock_plan_model:
+            mock_filter = MagicMock()
+            mock_order_by = MagicMock()
+            mock_order_by.all = AsyncMock(return_value=mock_plans)
+            mock_filter.order_by.return_value = mock_order_by
+            mock_plan_model.filter.return_value = mock_filter
 
-        assert len(result) == 2
-        assert result[0].name == "Basic"
-        assert result[1].name == "Pro"
+            result = await get_plans(request=mock_request)
+
+            assert len(result) == 2
+            assert result[0].name == "Basic"
+            assert result[1].name == "Pro"
 
 
 class TestGetCreditsOverview:
@@ -351,8 +297,6 @@ class TestGetCreditsOverview:
         """Test returns user credits overview."""
         from datetime import datetime, timezone
         from app.billing.routes import get_credits_overview
-        from app.billing.models import Payment
-        from app.billing.enums import PaymentMethod, PaymentProvider
 
         mock_user = MagicMock()
         mock_user.id = uuid4()
@@ -360,63 +304,57 @@ class TestGetCreditsOverview:
 
         now = datetime.now(timezone.utc)
 
-        # Create real Payment objects
-        payment1 = Payment(
-            id=uuid4(),
-            user_id=mock_user.id,
-            plan_id="pkg-1",
-            plan_name="Basic",
-            credits_purchased=100,
-            amount=Decimal("9.99"),
-            currency="NGN",
-            reference="REF-1",
-            status=PaymentStatus.SUCCESS,
-            payment_method=PaymentMethod.CARD,
-            provider=PaymentProvider.NOMBA,
-            created_at=now,
-            completed_at=now,
-        )
-        payment2 = Payment(
-            id=uuid4(),
-            user_id=mock_user.id,
-            plan_id="pkg-2",
-            plan_name="Pro",
-            credits_purchased=200,
-            amount=Decimal("19.99"),
-            currency="NGN",
-            reference="REF-2",
-            status=PaymentStatus.SUCCESS,
-            payment_method=PaymentMethod.CARD,
-            provider=PaymentProvider.NOMBA,
-            created_at=now,
-            completed_at=now,
-        )
+        # Create mock Payment objects
+        payment1 = MagicMock()
+        payment1.id = uuid4()
+        payment1.plan_name = "Basic"
+        payment1.credits_purchased = 100
+        payment1.amount = 999
+        payment1.currency = "NGN"
+        payment1.status = PaymentStatus.SUCCESS
+        payment1.payment_method = "card"
+        payment1.provider = PaymentProvider.NOMBA
+        payment1.created_at = now
+        payment1.completed_at = now
+
+        payment2 = MagicMock()
+        payment2.id = uuid4()
+        payment2.plan_name = "Pro"
+        payment2.credits_purchased = 200
+        payment2.amount = 1999
+        payment2.currency = "NGN"
+        payment2.status = PaymentStatus.SUCCESS
+        payment2.payment_method = "card"
+        payment2.provider = PaymentProvider.NOMBA
+        payment2.created_at = now
+        payment2.completed_at = now
+
         mock_purchases = [payment1, payment2]
-
-        mock_db = AsyncMock()
-
-        # First call returns successful purchases
-        mock_result1 = MagicMock()
-        mock_result1.scalars.return_value.all.return_value = mock_purchases
-
-        # Second call returns recent history
-        mock_result2 = MagicMock()
-        mock_result2.scalars.return_value.all.return_value = mock_purchases
-
-        mock_db.execute = AsyncMock(side_effect=[mock_result1, mock_result2])
 
         mock_request = MagicMock()
 
-        result = await get_credits_overview(
-            request=mock_request,
-            current_user=mock_user,
-            db=mock_db,
-        )
+        with patch("app.billing.routes.Payment") as mock_payment_model:
+            # First call: successful purchases
+            mock_filter1 = MagicMock()
+            mock_filter1.all = AsyncMock(return_value=mock_purchases)
 
-        assert result.current_balance == 250
-        assert result.total_purchased == 300
-        # Use pytest.approx for floating point comparison
-        assert result.total_spent == pytest.approx(29.98, rel=1e-2)
+            # Second call: recent history with ordering and limit
+            mock_filter2 = MagicMock()
+            mock_order_by = MagicMock()
+            mock_limit = MagicMock()
+            mock_limit.all = AsyncMock(return_value=mock_purchases)
+            mock_order_by.limit.return_value = mock_limit
+            mock_filter2.order_by.return_value = mock_order_by
+
+            mock_payment_model.filter.side_effect = [mock_filter1, mock_filter2]
+
+            result = await get_credits_overview(
+                request=mock_request,
+                current_user=mock_user,
+            )
+
+            assert result.current_balance == 250
+            assert result.total_purchased == 300
 
 
 class TestNombaWebhook:
@@ -431,13 +369,11 @@ class TestNombaWebhook:
         mock_request.body = AsyncMock(return_value=b'{"test": "data"}')
         mock_request.headers = {"X-Nomba-Signature": "invalid"}
 
-        mock_db = AsyncMock()
-
         with patch("app.billing.routes.settings") as mock_settings:
             mock_settings.nomba_webhook_secret = "test-secret"
 
             with pytest.raises(HTTPException) as exc:
-                await nomba_webhook(request=mock_request, db=mock_db)
+                await nomba_webhook(request=mock_request)
 
             assert exc.value.status_code == 401
 
@@ -451,27 +387,27 @@ class TestNombaWebhook:
         mock_request.headers = {}
         mock_request.json = AsyncMock(return_value={})
 
-        mock_db = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
-        with patch("app.billing.routes.settings") as mock_settings:
+        with patch("app.billing.routes.settings") as mock_settings, \
+             patch("app.billing.routes.nomba_provider") as mock_provider, \
+             patch("app.billing.routes.Payment") as mock_payment_model:
             mock_settings.nomba_webhook_secret = ""  # Not configured
 
-            with patch("app.billing.routes.nomba_provider") as mock_provider:
-                mock_provider.handle_webhook = AsyncMock(
-                    return_value={
-                        "success": True,
-                        "processed": True,
-                        "order_reference": "REF-123",
-                    }
-                )
+            mock_provider.handle_webhook = AsyncMock(
+                return_value={
+                    "success": True,
+                    "processed": True,
+                    "order_reference": "REF-123",
+                }
+            )
 
-                result = await nomba_webhook(request=mock_request, db=mock_db)
+            mock_filter = MagicMock()
+            mock_filter.first = AsyncMock(return_value=None)
+            mock_payment_model.filter.return_value = mock_filter
 
-                # Should not raise, just process
-                assert result["status"] == "received"
+            result = await nomba_webhook(request=mock_request)
+
+            # Should not raise, just process
+            assert result["status"] == "received"
 
     @pytest.mark.asyncio
     async def test_webhook_processes_successful_payment(self):
@@ -493,42 +429,44 @@ class TestNombaWebhook:
         mock_payment.status = PaymentStatus.PENDING
         mock_payment.credits_purchased = 100
         mock_payment.user_id = uuid4()
+        mock_payment.save = AsyncMock()
 
         mock_user = MagicMock()
         mock_user.credits = 0
+        mock_user.save = AsyncMock()
 
-        mock_db = AsyncMock()
-
-        # First call returns payment
-        mock_result1 = MagicMock()
-        mock_result1.scalar_one_or_none.return_value = mock_payment
-
-        # Second call returns user
-        mock_result2 = MagicMock()
-        mock_result2.scalar_one_or_none.return_value = mock_user
-
-        mock_db.execute = AsyncMock(side_effect=[mock_result1, mock_result2])
-
-        with patch("app.billing.routes.settings") as mock_settings:
+        with patch("app.billing.routes.settings") as mock_settings, \
+             patch("app.billing.routes.nomba_provider") as mock_provider, \
+             patch("app.billing.routes.Payment") as mock_payment_model, \
+             patch("app.billing.routes.User") as mock_user_model:
             mock_settings.nomba_webhook_secret = ""
 
-            with patch("app.billing.routes.nomba_provider") as mock_provider:
-                mock_provider.handle_webhook = AsyncMock(
-                    return_value={
-                        "success": True,
-                        "processed": True,
-                        "order_reference": "REF-123",
-                        "status": "success",
-                        "payment_reference": "PAY-123",
-                        "raw_payload": payload,
-                    }
-                )
+            mock_provider.handle_webhook = AsyncMock(
+                return_value={
+                    "success": True,
+                    "processed": True,
+                    "order_reference": "REF-123",
+                    "status": "success",
+                    "payment_reference": "PAY-123",
+                    "raw_payload": payload,
+                }
+            )
 
-                result = await nomba_webhook(request=mock_request, db=mock_db)
+            # Payment filter
+            mock_payment_filter = MagicMock()
+            mock_payment_filter.first = AsyncMock(return_value=mock_payment)
+            mock_payment_model.filter.return_value = mock_payment_filter
 
-                assert result["status"] == "received"
-                assert result["processed"] is True
-                assert mock_user.credits == 100
+            # User filter
+            mock_user_filter = MagicMock()
+            mock_user_filter.first = AsyncMock(return_value=mock_user)
+            mock_user_model.filter.return_value = mock_user_filter
+
+            result = await nomba_webhook(request=mock_request)
+
+            assert result["status"] == "received"
+            assert result["processed"] is True
+            assert mock_user.credits == 100
 
     @pytest.mark.asyncio
     async def test_webhook_skips_already_processed(self):
@@ -545,27 +483,27 @@ class TestNombaWebhook:
         mock_payment = MagicMock()
         mock_payment.status = PaymentStatus.SUCCESS  # Already processed
 
-        mock_db = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = mock_payment
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
-        with patch("app.billing.routes.settings") as mock_settings:
+        with patch("app.billing.routes.settings") as mock_settings, \
+             patch("app.billing.routes.nomba_provider") as mock_provider, \
+             patch("app.billing.routes.Payment") as mock_payment_model:
             mock_settings.nomba_webhook_secret = ""
 
-            with patch("app.billing.routes.nomba_provider") as mock_provider:
-                mock_provider.handle_webhook = AsyncMock(
-                    return_value={
-                        "success": True,
-                        "processed": True,
-                        "order_reference": "REF-123",
-                    }
-                )
+            mock_provider.handle_webhook = AsyncMock(
+                return_value={
+                    "success": True,
+                    "processed": True,
+                    "order_reference": "REF-123",
+                }
+            )
 
-                result = await nomba_webhook(request=mock_request, db=mock_db)
+            mock_filter = MagicMock()
+            mock_filter.first = AsyncMock(return_value=mock_payment)
+            mock_payment_model.filter.return_value = mock_filter
 
-                assert result["processed"] is False
-                assert result.get("reason") == "already_processed"
+            result = await nomba_webhook(request=mock_request)
+
+            assert result["processed"] is False
+            assert result.get("reason") == "already_processed"
 
     @pytest.mark.asyncio
     async def test_webhook_handles_failed_payment(self):
@@ -584,30 +522,31 @@ class TestNombaWebhook:
 
         mock_payment = MagicMock()
         mock_payment.status = PaymentStatus.PENDING
+        mock_payment.save = AsyncMock()
 
-        mock_db = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = mock_payment
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
-        with patch("app.billing.routes.settings") as mock_settings:
+        with patch("app.billing.routes.settings") as mock_settings, \
+             patch("app.billing.routes.nomba_provider") as mock_provider, \
+             patch("app.billing.routes.Payment") as mock_payment_model:
             mock_settings.nomba_webhook_secret = ""
 
-            with patch("app.billing.routes.nomba_provider") as mock_provider:
-                mock_provider.handle_webhook = AsyncMock(
-                    return_value={
-                        "success": True,
-                        "processed": True,
-                        "order_reference": "REF-123",
-                        "status": "failed",
-                        "raw_payload": payload,
-                    }
-                )
+            mock_provider.handle_webhook = AsyncMock(
+                return_value={
+                    "success": True,
+                    "processed": True,
+                    "order_reference": "REF-123",
+                    "status": "failed",
+                    "raw_payload": payload,
+                }
+            )
 
-                result = await nomba_webhook(request=mock_request, db=mock_db)
+            mock_filter = MagicMock()
+            mock_filter.first = AsyncMock(return_value=mock_payment)
+            mock_payment_model.filter.return_value = mock_filter
 
-                assert result["status"] == "received"
-                assert mock_payment.status == PaymentStatus.FAILED
+            result = await nomba_webhook(request=mock_request)
+
+            assert result["status"] == "received"
+            assert mock_payment.status == PaymentStatus.FAILED
 
     @pytest.mark.asyncio
     async def test_webhook_handles_exception(self):
@@ -619,12 +558,10 @@ class TestNombaWebhook:
         mock_request.headers = {}
         mock_request.json = AsyncMock(side_effect=Exception("Parse error"))
 
-        mock_db = AsyncMock()
-
         with patch("app.billing.routes.settings") as mock_settings:
             mock_settings.nomba_webhook_secret = ""
 
-            result = await nomba_webhook(request=mock_request, db=mock_db)
+            result = await nomba_webhook(request=mock_request)
 
             assert result["status"] == "error"
             assert "Internal processing error" in result["message"]

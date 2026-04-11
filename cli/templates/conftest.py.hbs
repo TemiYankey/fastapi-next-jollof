@@ -21,7 +21,7 @@ import pytest
 # This guarantees tests NEVER run against production.
 
 # Core - FORCED safe values
-os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+os.environ["DATABASE_URL"] = "sqlite://:memory:"
 os.environ["ENVIRONMENT"] = "testing"
 os.environ["DEBUG"] = "false"
 os.environ["SECRET_KEY"] = "test-secret-key-for-testing"

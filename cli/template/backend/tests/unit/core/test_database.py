@@ -1,170 +1,69 @@
 """Tests for database module (core/database.py)."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.core.database import Base, get_db, get_db_context, init_db, close_db
+from app.core.database import TORTOISE_ORM, init_db
 
 
-class TestBase:
-    """Tests for Base declarative class."""
+class TestTortoiseOrmConfig:
+    """Tests for TORTOISE_ORM configuration."""
 
-    def test_base_is_declarative_base(self):
-        """Test that Base is a SQLAlchemy DeclarativeBase."""
-        from sqlalchemy.orm import DeclarativeBase
+    def test_config_has_connections(self):
+        """Test config has connections defined."""
+        assert "connections" in TORTOISE_ORM
+        assert "default" in TORTOISE_ORM["connections"]
 
-        assert issubclass(Base, DeclarativeBase)
+    def test_config_has_apps(self):
+        """Test config has apps defined."""
+        assert "apps" in TORTOISE_ORM
+        assert "models" in TORTOISE_ORM["apps"]
 
+    def test_models_app_has_models_list(self):
+        """Test models app has models list."""
+        models_app = TORTOISE_ORM["apps"]["models"]
+        assert "models" in models_app
+        assert isinstance(models_app["models"], list)
 
-class TestGetDb:
-    """Tests for get_db dependency."""
+    def test_models_includes_user_models(self):
+        """Test models includes user models."""
+        models = TORTOISE_ORM["apps"]["models"]["models"]
+        assert "app.users.models" in models
 
-    @pytest.mark.asyncio
-    async def test_get_db_yields_session(self):
-        """Test that get_db yields a database session."""
-        mock_session = AsyncMock()
+    def test_models_includes_billing_models(self):
+        """Test models includes billing models."""
+        models = TORTOISE_ORM["apps"]["models"]["models"]
+        assert "app.billing.models" in models
 
-        with patch("app.core.database.async_session_maker") as mock_maker:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value = mock_session
-            mock_context.__aexit__.return_value = None
-            mock_maker.return_value = mock_context
-
-            async for session in get_db():
-                assert session == mock_session
-
-    @pytest.mark.asyncio
-    async def test_get_db_commits_on_success(self):
-        """Test that get_db commits on successful completion."""
-        mock_session = AsyncMock()
-        mock_session.commit = AsyncMock()
-        mock_session.rollback = AsyncMock()
-        mock_session.close = AsyncMock()
-
-        with patch("app.core.database.async_session_maker") as mock_maker:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value = mock_session
-            mock_context.__aexit__.return_value = None
-            mock_maker.return_value = mock_context
-
-            async for session in get_db():
-                pass  # Simulate successful operation
-
-            mock_session.commit.assert_called_once()
-            mock_session.rollback.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_get_db_rollback_on_exception(self):
-        """Test that get_db rolls back on exception."""
-        mock_session = AsyncMock()
-        mock_session.commit = AsyncMock(side_effect=Exception("Commit failed"))
-        mock_session.rollback = AsyncMock()
-        mock_session.close = AsyncMock()
-
-        with patch("app.core.database.async_session_maker") as mock_maker:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value = mock_session
-            mock_context.__aexit__.return_value = None
-            mock_maker.return_value = mock_context
-
-            with pytest.raises(Exception, match="Commit failed"):
-                async for session in get_db():
-                    pass
-
-            mock_session.rollback.assert_called_once()
-
-
-class TestGetDbContext:
-    """Tests for get_db_context context manager."""
-
-    @pytest.mark.asyncio
-    async def test_get_db_context_yields_session(self):
-        """Test that get_db_context yields a database session."""
-        mock_session = AsyncMock()
-
-        with patch("app.core.database.async_session_maker") as mock_maker:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value = mock_session
-            mock_context.__aexit__.return_value = None
-            mock_maker.return_value = mock_context
-
-            async with get_db_context() as session:
-                assert session == mock_session
-
-    @pytest.mark.asyncio
-    async def test_get_db_context_commits_on_success(self):
-        """Test that context manager commits on success."""
-        mock_session = AsyncMock()
-        mock_session.commit = AsyncMock()
-        mock_session.rollback = AsyncMock()
-        mock_session.close = AsyncMock()
-
-        with patch("app.core.database.async_session_maker") as mock_maker:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value = mock_session
-            mock_context.__aexit__.return_value = None
-            mock_maker.return_value = mock_context
-
-            async with get_db_context() as session:
-                pass  # Simulate successful operation
-
-            mock_session.commit.assert_called_once()
+    def test_default_connection_set(self):
+        """Test default connection is set."""
+        models_app = TORTOISE_ORM["apps"]["models"]
+        assert models_app["default_connection"] == "default"
 
 
 class TestInitDb:
     """Tests for init_db function."""
 
-    @pytest.mark.asyncio
-    async def test_init_db_creates_tables(self):
-        """Test that init_db creates database tables."""
-        mock_conn = AsyncMock()
-        mock_conn.run_sync = AsyncMock()
+    def test_init_db_calls_register_tortoise(self):
+        """Test init_db calls register_tortoise with correct args."""
+        mock_app = MagicMock()
 
-        with patch("app.core.database.engine") as mock_engine:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value = mock_conn
-            mock_context.__aexit__.return_value = None
-            mock_engine.begin.return_value = mock_context
+        with patch("app.core.database.register_tortoise") as mock_register:
+            init_db(mock_app)
 
-            await init_db()
+            mock_register.assert_called_once()
+            call_args = mock_register.call_args
 
-            mock_conn.run_sync.assert_called_once()
+            # Verify app is passed
+            assert call_args[0][0] == mock_app
 
+            # Verify config is passed
+            assert "config" in call_args[1]
+            assert call_args[1]["config"] == TORTOISE_ORM
 
-class TestCloseDb:
-    """Tests for close_db function."""
+            # Verify generate_schemas is True
+            assert call_args[1]["generate_schemas"] is True
 
-    @pytest.mark.asyncio
-    async def test_close_db_disposes_engine(self):
-        """Test that close_db disposes the engine."""
-        with patch("app.core.database.engine") as mock_engine:
-            mock_engine.dispose = AsyncMock()
-
-            await close_db()
-
-            mock_engine.dispose.assert_called_once()
-
-
-class TestEngineConfiguration:
-    """Tests for engine configuration."""
-
-    def test_sqlite_config_no_pool_settings(self):
-        """Test that SQLite config doesn't include pool settings."""
-        with patch("app.core.database.settings") as mock_settings:
-            mock_settings.database_url = "sqlite+aiosqlite:///:memory:"
-            mock_settings.debug = False
-
-            # Re-import to test configuration
-            # Note: In practice, we're testing the conditional logic
-            from app.core.database import _engine_kwargs
-
-            # SQLite should not have pool settings
-            if mock_settings.database_url.startswith("sqlite"):
-                assert "pool_size" not in _engine_kwargs or _engine_kwargs.get("pool_size") is None
-
-    def test_postgres_config_has_pool_settings(self):
-        """Test that PostgreSQL config includes pool settings."""
-        # This tests the conditional logic in database.py
-        # In the actual code, PostgreSQL URLs get pool settings
-        pass  # Configuration is set at import time
+            # Verify exception handlers are added
+            assert call_args[1]["add_exception_handlers"] is True

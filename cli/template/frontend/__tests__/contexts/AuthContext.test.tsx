@@ -137,12 +137,6 @@ describe("AuthContext", () => {
 
   describe("login", () => {
     it("successfully logs in user", async () => {
-      const mockUser = {
-        id: "user-123",
-        email: "test@example.com",
-        full_name: "Test User",
-      };
-
       vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
         data: {
           user: { id: "user-123", email: "test@example.com" } as never,
@@ -150,8 +144,6 @@ describe("AuthContext", () => {
         },
         error: null,
       });
-
-      vi.mocked(authApi.me).mockResolvedValue(mockUser);
 
       const mockSetUser = vi.fn();
       vi.mocked(useUserStore).mockReturnValue({
@@ -170,12 +162,12 @@ describe("AuthContext", () => {
         await result.current.login("test@example.com", "password");
       });
 
+      // Login just calls signInWithPassword
+      // User fetch is handled by onAuthStateChange SIGNED_IN event
       expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({
         email: "test@example.com",
         password: "password",
       });
-
-      expect(authApi.me).toHaveBeenCalled();
     });
 
     it("throws error on login failure", async () => {

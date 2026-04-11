@@ -1,5 +1,6 @@
 """Tests for billing models."""
 
+from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
 
@@ -60,7 +61,7 @@ class TestPlanModel:
 
     def test_plan_default_values(self):
         """Test plan default values when explicitly provided."""
-        # Note: SQLAlchemy defaults only apply at DB insert time
+        # Note: Tortoise ORM defaults only apply at DB insert time
         # For unit tests, we test with explicit default values
         plan = Plan(
             id=uuid4(),
@@ -118,8 +119,6 @@ class TestPaymentModel:
 
     def test_payment_with_all_fields(self):
         """Test payment with all optional fields."""
-        from datetime import datetime, timezone
-
         now = datetime.now(timezone.utc)
         payment = Payment(
             id=uuid4(),

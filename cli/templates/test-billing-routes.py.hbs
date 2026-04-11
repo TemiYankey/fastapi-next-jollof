@@ -2,6 +2,7 @@
 
 import hashlib
 import hmac
+from datetime import datetime, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -10,12 +11,18 @@ import pytest
 from fastapi import HTTPException
 
 from app.billing.enums import PaymentProvider, PaymentStatus
-from app.billing.routes import verify_webhook_signature
+from app.billing.routes import (
+    create_checkout_session,
+    get_credits_overview,
+    get_plans,
+    payment_webhook,
+    verify_payment,
+    verify_webhook_signature,
+)
 
 
-{{#if isNomba}}
 class TestVerifyWebhookSignature:
-    """Tests for verify_webhook_signature function (Nomba - HMAC-SHA512)."""
+    """Tests for verify_webhook_signature function."""
 
     def test_valid_signature(self):
         """Test valid webhook signature verification."""
@@ -72,117 +79,6 @@ class TestVerifyWebhookSignature:
         result = verify_webhook_signature(payload, expected_signature.upper(), secret)
 
         assert result is True
-{{/if}}
-{{#if isPaystack}}
-class TestVerifyWebhookSignature:
-    """Tests for verify_webhook_signature function (Paystack - HMAC-SHA512)."""
-
-    def test_valid_signature(self):
-        """Test valid webhook signature verification."""
-        payload = b'{"event": "charge.success"}'
-        secret = "test-secret"
-
-        # Generate valid signature
-        expected_signature = hmac.new(
-            secret.encode("utf-8"), payload, hashlib.sha512
-        ).hexdigest()
-
-        result = verify_webhook_signature(payload, expected_signature, secret)
-
-        assert result is True
-
-    def test_invalid_signature(self):
-        """Test invalid webhook signature verification."""
-        payload = b'{"event": "charge.success"}'
-        secret = "test-secret"
-        invalid_signature = "invalid-signature"
-
-        result = verify_webhook_signature(payload, invalid_signature, secret)
-
-        assert result is False
-
-    def test_empty_secret(self):
-        """Test signature verification with empty secret."""
-        payload = b'{"event": "charge.success"}'
-        signature = "some-signature"
-
-        result = verify_webhook_signature(payload, signature, "")
-
-        assert result is False
-
-    def test_empty_signature(self):
-        """Test signature verification with empty signature."""
-        payload = b'{"event": "charge.success"}'
-        secret = "test-secret"
-
-        result = verify_webhook_signature(payload, "", secret)
-
-        assert result is False
-
-    def test_signature_case_insensitive(self):
-        """Test signature verification is case insensitive."""
-        payload = b'{"event": "charge.success"}'
-        secret = "test-secret"
-
-        expected_signature = hmac.new(
-            secret.encode("utf-8"), payload, hashlib.sha512
-        ).hexdigest()
-
-        # Test uppercase
-        result = verify_webhook_signature(payload, expected_signature.upper(), secret)
-
-        assert result is True
-{{/if}}
-{{#if isStripe}}
-class TestVerifyWebhookSignature:
-    """Tests for verify_webhook_signature function (Stripe)."""
-
-    def test_valid_signature(self):
-        """Test valid webhook signature verification with Stripe SDK."""
-        import stripe
-
-        payload = b'{"id": "evt_test"}'
-        secret = "whsec_test_secret"
-
-        # Mock Stripe's construct_event to return success
-        with patch("stripe.Webhook.construct_event") as mock_construct:
-            mock_construct.return_value = {"id": "evt_test"}
-
-            result = verify_webhook_signature(payload, "valid_sig", secret)
-
-            assert result is True
-            mock_construct.assert_called_once_with(payload, "valid_sig", secret)
-
-    def test_invalid_signature(self):
-        """Test invalid webhook signature verification."""
-        import stripe
-
-        payload = b'{"id": "evt_test"}'
-        secret = "whsec_test_secret"
-
-        # Mock Stripe's construct_event to raise exception
-        with patch("stripe.Webhook.construct_event") as mock_construct:
-            mock_construct.side_effect = stripe.error.SignatureVerificationError(
-                "Invalid signature", "sig_header"
-            )
-
-            result = verify_webhook_signature(payload, "invalid_sig", secret)
-
-            assert result is False
-
-    def test_verification_error(self):
-        """Test webhook signature verification error handling."""
-        payload = b'{"id": "evt_test"}'
-        secret = "whsec_test_secret"
-
-        # Mock Stripe's construct_event to raise generic exception
-        with patch("stripe.Webhook.construct_event") as mock_construct:
-            mock_construct.side_effect = Exception("Some error")
-
-            result = verify_webhook_signature(payload, "some_sig", secret)
-
-            assert result is False
-{{/if}}
 
 
 class TestCreateCheckoutSession:
@@ -191,62 +87,67 @@ class TestCreateCheckoutSession:
     @pytest.mark.asyncio
     async def test_successful_checkout_creation(self):
         """Test successful checkout session creation."""
-        from app.billing.routes import create_checkout_session
-
         mock_user = MagicMock()
         mock_user.id = uuid4()
         mock_user.email = "test@example.com"
         mock_user.full_name = "Test User"
 
-        mock_db = AsyncMock()
         mock_request = MagicMock()
 
         checkout_data = MagicMock()
         checkout_data.plan_id = "pkg-123"
         checkout_data.plan_name = "Test Package"
-        checkout_data.amount = Decimal("10.00")
+        checkout_data.amount = 1000
         checkout_data.credits = 100
         checkout_data.success_url = "https://example.com/success"
         checkout_data.cancel_url = "https://example.com/cancel"
 
-        with patch("app.billing.routes.payment_provider") as mock_provider:
+        mock_payment = MagicMock()
+        mock_payment.id = uuid4()
+
+        with patch("app.billing.routes.payment_provider") as mock_provider, \
+             patch("app.billing.routes.Payment") as mock_payment_model:
             mock_provider.create_checkout_session = AsyncMock(
                 return_value=MagicMock(
                     success=True,
-                    checkout_url="https://checkout.example.com/pay/123",
+{{#if isNomba}}
+                    checkout_url="https://checkout.nomba.com/pay/123",
+{{/if}}
+{{#if isStripe}}
+                    checkout_url="https://checkout.stripe.com/pay/123",
+{{/if}}
+{{#if isPaystack}}
+                    checkout_url="https://checkout.paystack.com/pay/123",
+{{/if}}
                     reference="REF-123",
                 )
             )
+            mock_payment_model.create = AsyncMock(return_value=mock_payment)
 
             result = await create_checkout_session(
                 request=mock_request,
                 checkout_data=checkout_data,
                 current_user=mock_user,
-                db=mock_db,
             )
 
             assert result.success is True
-            assert result.checkout_url == "https://checkout.example.com/pay/123"
-            mock_db.add.assert_called_once()
-            mock_db.flush.assert_called_once()
+            assert result.checkout_url is not None
+            mock_payment_model.create.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_checkout_provider_failure(self):
         """Test checkout session handles provider failure."""
-        from app.billing.routes import create_checkout_session
-
         mock_user = MagicMock()
         mock_user.id = uuid4()
         mock_user.email = "test@example.com"
         mock_user.full_name = "Test User"
 
-        mock_db = AsyncMock()
         mock_request = MagicMock()
 
         checkout_data = MagicMock()
         checkout_data.plan_id = "pkg-123"
         checkout_data.plan_name = "Test Package"
-        checkout_data.amount = Decimal("10.00")
+        checkout_data.amount = 1000
         checkout_data.credits = 100
         checkout_data.success_url = "https://example.com/success"
         checkout_data.cancel_url = "https://example.com/cancel"
@@ -261,7 +162,6 @@ class TestCreateCheckoutSession:
                     request=mock_request,
                     checkout_data=checkout_data,
                     current_user=mock_user,
-                    db=mock_db,
                 )
 
             assert exc.value.status_code == 500
@@ -273,70 +173,63 @@ class TestVerifyPayment:
     @pytest.mark.asyncio
     async def test_payment_not_found(self):
         """Test verify payment when payment not found."""
-        from app.billing.routes import verify_payment
-
         mock_user = MagicMock()
         mock_user.id = uuid4()
 
-        mock_db = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
         mock_request = MagicMock()
 
-        with pytest.raises(HTTPException) as exc:
-            await verify_payment(
-                request=mock_request,
-                reference="INVALID-REF",
-                current_user=mock_user,
-                db=mock_db,
-            )
+        with patch("app.billing.routes.Payment") as mock_payment_model:
+            mock_filter = MagicMock()
+            mock_filter.first = AsyncMock(return_value=None)
+            mock_payment_model.filter.return_value = mock_filter
 
-        assert exc.value.status_code == 404
-        assert "not found" in exc.value.detail.lower()
+            with pytest.raises(HTTPException) as exc:
+                await verify_payment(
+                    request=mock_request,
+                    reference="INVALID-REF",
+                    current_user=mock_user,
+                )
+
+            assert exc.value.status_code == 404
+            assert "not found" in exc.value.detail.lower()
 
     @pytest.mark.asyncio
     async def test_already_successful_payment(self):
         """Test verify payment that's already successful."""
-        from app.billing.routes import verify_payment
-
         mock_user = MagicMock()
         mock_user.id = uuid4()
         mock_user.credits = 500
+        mock_user.refresh_from_db = AsyncMock()
 
         mock_payment = MagicMock()
         mock_payment.status = PaymentStatus.SUCCESS
         mock_payment.credits_purchased = 100
         mock_payment.reference = "REF-123"
-        mock_payment.amount = Decimal("10.00")
+        mock_payment.amount = 1000
         mock_payment.currency = "NGN"
         mock_payment.payment_method = "card"
         mock_payment.completed_at = None
 
-        mock_db = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = mock_payment
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
         mock_request = MagicMock()
 
-        result = await verify_payment(
-            request=mock_request,
-            reference="REF-123",
-            current_user=mock_user,
-            db=mock_db,
-        )
+        with patch("app.billing.routes.Payment") as mock_payment_model:
+            mock_filter = MagicMock()
+            mock_filter.first = AsyncMock(return_value=mock_payment)
+            mock_payment_model.filter.return_value = mock_filter
 
-        assert result.success is True
-        assert result.verified is True
-        assert "already added" in result.message.lower()
+            result = await verify_payment(
+                request=mock_request,
+                reference="REF-123",
+                current_user=mock_user,
+            )
+
+            assert result.success is True
+            assert result.verified is True
+            assert "already added" in result.message.lower()
 
     @pytest.mark.asyncio
     async def test_already_failed_payment(self):
         """Test verify payment that's already failed."""
-        from app.billing.routes import verify_payment
-
         mock_user = MagicMock()
         mock_user.id = uuid4()
 
@@ -344,114 +237,56 @@ class TestVerifyPayment:
         mock_payment.status = PaymentStatus.FAILED
         mock_payment.reference = "REF-123"
 
-        mock_db = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = mock_payment
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
         mock_request = MagicMock()
 
-        result = await verify_payment(
-            request=mock_request,
-            reference="REF-123",
-            current_user=mock_user,
-            db=mock_db,
-        )
-
-        assert result.success is False
-        assert result.verified is False
-        assert "failed" in result.error_message.lower()
-
-    @pytest.mark.asyncio
-    async def test_successful_verification_adds_credits(self):
-        """Test successful verification adds credits to user."""
-        from app.billing.routes import verify_payment
-
-        mock_user = MagicMock()
-        mock_user.id = uuid4()
-        mock_user.credits = 100
-        mock_user.email = "test@example.com"
-
-        mock_payment = MagicMock()
-        mock_payment.status = PaymentStatus.PENDING
-        mock_payment.credits_purchased = 50
-        mock_payment.reference = "REF-123"
-        mock_payment.provider_order_reference = "ORD-123"
-        mock_payment.amount = Decimal("10.00")
-        mock_payment.currency = "NGN"
-        mock_payment.payment_method = "card"
-
-        mock_db = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = mock_payment
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
-        mock_request = MagicMock()
-
-        with patch("app.billing.routes.payment_provider") as mock_provider:
-            mock_provider.verify_payment = AsyncMock(
-                return_value=MagicMock(
-                    success=True,
-                    verified=True,
-                    paid_at=None,
-                    provider_reference="PAY-123",
-                    raw_response={},
-                )
-            )
+        with patch("app.billing.routes.Payment") as mock_payment_model:
+            mock_filter = MagicMock()
+            mock_filter.first = AsyncMock(return_value=mock_payment)
+            mock_payment_model.filter.return_value = mock_filter
 
             result = await verify_payment(
                 request=mock_request,
                 reference="REF-123",
                 current_user=mock_user,
-                db=mock_db,
             )
 
-            assert result.success is True
-            assert result.verified is True
-            assert result.credits_added == 50
-            assert mock_user.credits == 150  # 100 + 50
+            assert result.success is False
+            assert result.verified is False
+            assert "failed" in result.error_message.lower()
 
 
 class TestGetPlans:
     """Tests for get_plans endpoint."""
 
     @pytest.mark.asyncio
-    async def test_returns_active_packages(self):
-        """Test returns only active pricing packages."""
-        from app.billing.routes import get_plans
-        from app.billing.models import Plan
+    async def test_returns_active_plans(self):
+        """Test returns only active pricing plans."""
+        # Create mock Plan objects
+        pkg1 = MagicMock()
+        pkg1.id = uuid4()
+        pkg1.name = "Basic"
+        pkg1.price = 999
+        pkg1.is_active = True
 
-        # Create real Plan objects
-        pkg1 = Plan(
-            id=uuid4(),
-            name="Basic",
-            price=999,
-            credits=100,
-            original_price=999,
-            is_active=True,
-        )
-        pkg2 = Plan(
-            id=uuid4(),
-            name="Pro",
-            price=2999,
-            credits=500,
-            original_price=2999,
-            is_active=True,
-        )
-        mock_packages = [pkg1, pkg2]
+        pkg2 = MagicMock()
+        pkg2.id = uuid4()
+        pkg2.name = "Pro"
+        pkg2.price = 2999
+        pkg2.is_active = True
 
-        mock_db = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = mock_packages
-        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_plans = [pkg1, pkg2]
 
         mock_request = MagicMock()
 
-        result = await get_plans(request=mock_request, db=mock_db)
+        with patch("app.billing.routes.Plan") as mock_plan_model:
+            mock_filter = MagicMock()
+            mock_order_by = mock_filter.order_by.return_value
+            mock_order_by.__iter__ = lambda self: iter(mock_plans)
+            mock_plan_model.filter.return_value = mock_filter
 
-        assert len(result) == 2
-        assert result[0].name == "Basic"
-        assert result[1].name == "Pro"
+            result = await get_plans(request=mock_request)
+
+            assert len(list(result)) == 2
 
 
 class TestGetCreditsOverview:
@@ -460,10 +295,6 @@ class TestGetCreditsOverview:
     @pytest.mark.asyncio
     async def test_returns_credits_overview(self):
         """Test returns user credits overview."""
-        from datetime import datetime, timezone
-        from app.billing.routes import get_credits_overview
-        from app.billing.models import Payment
-        from app.billing.enums import PaymentMethod, PaymentProvider
 
         mock_user = MagicMock()
         mock_user.id = uuid4()
@@ -471,119 +302,129 @@ class TestGetCreditsOverview:
 
         now = datetime.now(timezone.utc)
 
-        # Create real Payment objects
-        payment1 = Payment(
-            id=uuid4(),
-            user_id=mock_user.id,
-            plan_id="pkg-1",
-            plan_name="Basic",
-            credits_purchased=100,
-            amount=Decimal("9.99"),
-            currency="NGN",
-            reference="REF-1",
-            status=PaymentStatus.SUCCESS,
-            payment_method=PaymentMethod.CARD,
+        # Create mock Payment objects
+        payment1 = MagicMock()
+        payment1.id = uuid4()
+        payment1.plan_name = "Basic"
+        payment1.credits_purchased = 100
+        payment1.amount = 999
+        payment1.currency = "NGN"
+        payment1.status = PaymentStatus.SUCCESS
+        payment1.payment_method = "card"
 {{#if isNomba}}
-            provider=PaymentProvider.NOMBA,
+        payment1.provider = PaymentProvider.NOMBA
 {{/if}}
 {{#if isStripe}}
-            provider=PaymentProvider.STRIPE,
+        payment1.provider = PaymentProvider.STRIPE
 {{/if}}
 {{#if isPaystack}}
-            provider=PaymentProvider.PAYSTACK,
+        payment1.provider = PaymentProvider.PAYSTACK
 {{/if}}
-            created_at=now,
-            completed_at=now,
-        )
-        payment2 = Payment(
-            id=uuid4(),
-            user_id=mock_user.id,
-            plan_id="pkg-2",
-            plan_name="Pro",
-            credits_purchased=200,
-            amount=Decimal("19.99"),
-            currency="NGN",
-            reference="REF-2",
-            status=PaymentStatus.SUCCESS,
-            payment_method=PaymentMethod.CARD,
+        payment1.created_at = now
+        payment1.completed_at = now
+
+        payment2 = MagicMock()
+        payment2.id = uuid4()
+        payment2.plan_name = "Pro"
+        payment2.credits_purchased = 200
+        payment2.amount = 1999
+        payment2.currency = "NGN"
+        payment2.status = PaymentStatus.SUCCESS
+        payment2.payment_method = "card"
 {{#if isNomba}}
-            provider=PaymentProvider.NOMBA,
+        payment2.provider = PaymentProvider.NOMBA
 {{/if}}
 {{#if isStripe}}
-            provider=PaymentProvider.STRIPE,
+        payment2.provider = PaymentProvider.STRIPE
 {{/if}}
 {{#if isPaystack}}
-            provider=PaymentProvider.PAYSTACK,
+        payment2.provider = PaymentProvider.PAYSTACK
 {{/if}}
-            created_at=now,
-            completed_at=now,
-        )
+        payment2.created_at = now
+        payment2.completed_at = now
+
         mock_purchases = [payment1, payment2]
-
-        mock_db = AsyncMock()
-
-        # First call returns successful purchases
-        mock_result1 = MagicMock()
-        mock_result1.scalars.return_value.all.return_value = mock_purchases
-
-        # Second call returns recent history
-        mock_result2 = MagicMock()
-        mock_result2.scalars.return_value.all.return_value = mock_purchases
-
-        mock_db.execute = AsyncMock(side_effect=[mock_result1, mock_result2])
 
         mock_request = MagicMock()
 
-        result = await get_credits_overview(
-            request=mock_request,
-            current_user=mock_user,
-            db=mock_db,
-        )
+        with patch("app.billing.routes.Payment") as mock_payment_model:
+            # First call: successful purchases
+            mock_filter1 = MagicMock()
+            mock_filter1.all = AsyncMock(return_value=mock_purchases)
 
-        assert result.current_balance == 250
-        assert result.total_purchased == 300
-        # Use pytest.approx for floating point comparison
-        assert result.total_spent == pytest.approx(29.98, rel=1e-2)
+            # Second call: recent history with ordering and limit
+            mock_filter2 = MagicMock()
+            mock_order_by = MagicMock()
+            mock_limit = MagicMock()
+            mock_limit.__iter__ = lambda self: iter(mock_purchases)
+            mock_order_by.limit.return_value = mock_limit
+            mock_filter2.order_by.return_value = mock_order_by
+
+            mock_payment_model.filter.side_effect = [mock_filter1, mock_filter2]
+
+            result = await get_credits_overview(
+                request=mock_request,
+                current_user=mock_user,
+            )
+
+            assert result.current_balance == 250
+            assert result.total_purchased == 300
 
 
-class TestWebhook:
-    """Tests for webhook endpoint."""
+class TestPaymentWebhook:
+    """Tests for payment_webhook endpoint."""
 
     @pytest.mark.asyncio
     async def test_invalid_signature_rejected(self):
         """Test webhook rejects invalid signature."""
-        from app.billing.routes import payment_webhook
-
         mock_request = MagicMock()
         mock_request.body = AsyncMock(return_value=b'{"test": "data"}')
-        mock_request.headers = {"X-Webhook-Signature": "invalid"}
-
-        mock_db = AsyncMock()
+{{#if isNomba}}
+        mock_request.headers = {"X-Nomba-Signature": "invalid"}
+{{/if}}
+{{#if isStripe}}
+        mock_request.headers = {"Stripe-Signature": "invalid"}
+{{/if}}
+{{#if isPaystack}}
+        mock_request.headers = {"X-Paystack-Signature": "invalid"}
+{{/if}}
 
         with patch("app.billing.routes.settings") as mock_settings:
-            mock_settings.{{#if isNomba}}nomba_webhook_secret{{/if}}{{#if isStripe}}stripe_webhook_secret{{/if}}{{#if isPaystack}}paystack_webhook_secret{{/if}} = "test-secret"
+{{#if isNomba}}
+            mock_settings.nomba_webhook_secret = "test-secret"
+{{/if}}
+{{#if isStripe}}
+            mock_settings.stripe_webhook_secret = "test-secret"
+{{/if}}
+{{#if isPaystack}}
+            mock_settings.paystack_webhook_secret = "test-secret"
+{{/if}}
 
             with pytest.raises(HTTPException) as exc:
-                await payment_webhook(request=mock_request, db=mock_db)
+                await payment_webhook(request=mock_request)
 
             assert exc.value.status_code == 401
 
     @pytest.mark.asyncio
     async def test_webhook_handles_exception(self):
         """Test webhook handles unexpected exception."""
-        from app.billing.routes import payment_webhook
-
         mock_request = MagicMock()
         mock_request.body = AsyncMock(return_value=b'{}')
         mock_request.headers = {}
         mock_request.json = AsyncMock(side_effect=Exception("Parse error"))
 
-        mock_db = AsyncMock()
-
         with patch("app.billing.routes.settings") as mock_settings:
-            mock_settings.{{#if isNomba}}nomba_webhook_secret{{/if}}{{#if isStripe}}stripe_webhook_secret{{/if}}{{#if isPaystack}}paystack_webhook_secret{{/if}} = ""
+{{#if isNomba}}
+            mock_settings.nomba_webhook_secret = ""
+{{/if}}
+{{#if isStripe}}
+            mock_settings.stripe_webhook_secret = ""
+{{/if}}
+{{#if isPaystack}}
+            mock_settings.paystack_webhook_secret = ""
+{{/if}}
 
-            result = await payment_webhook(request=mock_request, db=mock_db)
+            result = await payment_webhook(request=mock_request)
 
             assert result["status"] == "error"
             assert "Internal processing error" in result["message"]

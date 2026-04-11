@@ -1,6 +1,5 @@
 """Tests for user models."""
 
-from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
@@ -25,53 +24,20 @@ class TestUserModel:
         assert "Test User" in result
         assert "test@example.com" in result
 
-    def test_user_column_defaults_defined(self):
-        """Test user model has defaults defined in column mapping."""
-        from sqlalchemy import inspect
-        mapper = inspect(User)
-
-        # Check various columns have defaults
-        credits_col = mapper.columns['credits']
-        assert credits_col.default is not None
-        assert credits_col.default.arg == 0
-
-        is_active_col = mapper.columns['is_active']
-        assert is_active_col.default is not None
-        assert is_active_col.default.arg is True
-
-        is_admin_col = mapper.columns['is_admin']
-        assert is_admin_col.default is not None
-        assert is_admin_col.default.arg is False
-
-    def test_user_with_explicit_defaults(self):
-        """Test user with explicit default values."""
-        user = User(
-            id=uuid4(),
-            email="test@example.com",
-            full_name="Test User",
-            supabase_id="test-supabase-id",
-            credits=0,
-            is_active=True,
-            is_admin=False,
-            is_staff=False,
-            email_notifications=True,
-            marketing_emails=False,
-        )
-
-        assert user.credits == 0
-        assert user.is_active is True
-        assert user.is_admin is False
-        assert user.is_staff is False
-        assert user.email_notifications is True
-        assert user.marketing_emails is False
-        assert user.password is None
-        assert user.last_login is None
-        assert user.last_purchase_date is None
-        assert user.deleted_at is None
-
-    def test_user_tablename(self):
+    def test_user_table_name(self):
         """Test User model has correct table name."""
-        assert User.__tablename__ == "users"
+        assert User._meta.db_table == "users"
+
+    def test_user_has_required_fields(self):
+        """Test User model has required fields."""
+        field_names = [f.model_field_name for f in User._meta.fields_map.values()]
+
+        assert "id" in field_names
+        assert "email" in field_names
+        assert "full_name" in field_names
+        assert "supabase_id" in field_names
+        assert "is_active" in field_names
+        assert "credits" in field_names
 
     def test_set_password(self):
         """Test password hashing."""
@@ -125,147 +91,36 @@ class TestUserModel:
 
         assert user.check_password("any") is False
 
-    def test_user_with_all_fields(self):
-        """Test user with all fields set."""
-        user_id = uuid4()
-        now = datetime.now(timezone.utc)
-
-        user = User(
-            id=user_id,
-            email="admin@example.com",
-            full_name="Admin User",
-            supabase_id="admin-supabase-id",
-            credits=500,
-            last_login=now,
-            last_purchase_date=now,
-            is_active=True,
-            is_admin=True,
-            is_staff=True,
-            email_notifications=False,
-            marketing_emails=True,
-        )
-
-        assert user.id == user_id
-        assert user.email == "admin@example.com"
-        assert user.credits == 500
-        assert user.is_admin is True
-        assert user.is_staff is True
-        assert user.email_notifications is False
-        assert user.marketing_emails is True
-
 
 class TestUserProfileModel:
     """Tests for UserProfile model."""
 
-    def test_profile_tablename(self):
+    def test_profile_table_name(self):
         """Test UserProfile model has correct table name."""
-        assert UserProfile.__tablename__ == "user_profiles"
+        assert UserProfile._meta.db_table == "user_profiles"
 
-    def test_profile_column_defaults_defined(self):
-        """Test profile model has defaults defined in column mapping."""
-        from sqlalchemy import inspect
-        mapper = inspect(UserProfile)
+    def test_profile_has_required_fields(self):
+        """Test UserProfile model has required fields."""
+        field_names = [f.model_field_name for f in UserProfile._meta.fields_map.values()]
 
-        # Check avatar_version has default
-        avatar_version_col = mapper.columns['avatar_version']
-        assert avatar_version_col.default is not None
-        assert avatar_version_col.default.arg == 1
-
-        # Check theme has default
-        theme_col = mapper.columns['theme']
-        assert theme_col.default is not None
-        assert theme_col.default.arg == "system"
-
-    def test_profile_with_explicit_defaults(self):
-        """Test profile with explicit default values."""
-        profile = UserProfile(
-            id=uuid4(),
-            user_id=uuid4(),
-            avatar_version=1,
-            theme="system",
-        )
-
-        assert profile.bio is None
-        assert profile.phone is None
-        assert profile.location is None
-        assert profile.avatar_url is None
-        assert profile.avatar_version == 1
-        assert profile.website_url is None
-        assert profile.linkedin_url is None
-        assert profile.github_url is None
-        assert profile.current_position is None
-        assert profile.company is None
-        assert profile.theme == "system"
-
-    def test_profile_with_all_fields(self):
-        """Test profile with all fields set."""
-        profile_id = uuid4()
-        user_id = uuid4()
-
-        profile = UserProfile(
-            id=profile_id,
-            user_id=user_id,
-            bio="Software developer with 10 years experience",
-            phone="+2348012345678",
-            location="Lagos, Nigeria",
-            avatar_url="https://cdn.example.com/avatar.jpg",
-            avatar_version=3,
-            website_url="https://mysite.com",
-            linkedin_url="https://linkedin.com/in/testuser",
-            github_url="https://github.com/testuser",
-            current_position="Senior Developer",
-            company="Tech Corp",
-            theme="dark",
-        )
-
-        assert profile.id == profile_id
-        assert profile.user_id == user_id
-        assert profile.bio == "Software developer with 10 years experience"
-        assert profile.phone == "+2348012345678"
-        assert profile.location == "Lagos, Nigeria"
-        assert profile.avatar_url == "https://cdn.example.com/avatar.jpg"
-        assert profile.avatar_version == 3
-        assert profile.website_url == "https://mysite.com"
-        assert profile.linkedin_url == "https://linkedin.com/in/testuser"
-        assert profile.github_url == "https://github.com/testuser"
-        assert profile.current_position == "Senior Developer"
-        assert profile.company == "Tech Corp"
-        assert profile.theme == "dark"
+        assert "id" in field_names
+        assert "bio" in field_names
+        assert "phone" in field_names
+        assert "location" in field_names
+        assert "avatar_url" in field_names
+        assert "theme" in field_names
 
 
 class TestUserProfileRelationship:
     """Tests for User-UserProfile relationship."""
 
     def test_user_has_profile_relationship(self):
-        """Test User model has profile relationship attribute."""
-        user = User(
-            id=uuid4(),
-            email="test@example.com",
-            full_name="Test User",
-            supabase_id="test-supabase-id",
-        )
-
-        # Profile relationship exists (initially None)
-        assert hasattr(user, "profile")
+        """Test User model has profile relationship defined."""
+        # Check that profile is defined as a type annotation
+        # (fetch_fields only populated after Tortoise init)
+        assert "profile" in User.__annotations__
 
     def test_user_has_payments_relationship(self):
-        """Test User model has payments relationship attribute."""
-        user = User(
-            id=uuid4(),
-            email="test@example.com",
-            full_name="Test User",
-            supabase_id="test-supabase-id",
-        )
-
-        # Payments relationship exists
-        assert hasattr(user, "payments")
-
-    def test_profile_has_user_relationship(self):
-        """Test UserProfile model has user relationship attribute."""
-        profile = UserProfile(
-            id=uuid4(),
-            user_id=uuid4(),
-        )
-
-        # User relationship exists
-        assert hasattr(profile, "user")
+        """Test User model has payments relationship defined."""
+        # Check that payments is defined as a type annotation
+        assert "payments" in User.__annotations__

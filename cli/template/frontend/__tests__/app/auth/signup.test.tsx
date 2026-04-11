@@ -93,18 +93,23 @@ describe("SignUpPage", () => {
         screen.getByRole("button", { name: /continue with google/i })
       ).toBeInTheDocument();
     });
+  });
 
-    it("shows password requirement text", () => {
+  describe("password strength indicator", () => {
+    it("shows password requirements when typing", () => {
       render(<SignUpPage />);
 
-      expect(
-        screen.getByText(/password must be at least 8 characters/i)
-      ).toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: "test" },
+      });
+
+      // Password strength component shows requirements
+      expect(screen.getByText(/at least 8 characters/i)).toBeInTheDocument();
     });
   });
 
   describe("form submission", () => {
-    it("calls signup with form data", async () => {
+    it("calls signup with form data when all requirements met", async () => {
       render(<SignUpPage />);
 
       fireEvent.change(screen.getByLabelText(/first name/i), {
@@ -116,8 +121,9 @@ describe("SignUpPage", () => {
       fireEvent.change(screen.getByLabelText(/email/i), {
         target: { value: "john@example.com" },
       });
+      // Password that meets all requirements
       fireEvent.change(screen.getByLabelText(/password/i), {
-        target: { value: "password123" },
+        target: { value: "Password123" },
       });
 
       fireEvent.click(screen.getByRole("button", { name: /create account/i }));
@@ -127,12 +133,12 @@ describe("SignUpPage", () => {
           firstName: "John",
           lastName: "Doe",
           email: "john@example.com",
-          password: "password123",
+          password: "Password123",
         });
       });
     });
 
-    it("shows loading state during submission", async () => {
+    it("disables button during submission", async () => {
       mockSignup.mockImplementation(
         () => new Promise((resolve) => setTimeout(resolve, 100))
       );
@@ -149,19 +155,19 @@ describe("SignUpPage", () => {
         target: { value: "john@example.com" },
       });
       fireEvent.change(screen.getByLabelText(/password/i), {
-        target: { value: "password123" },
+        target: { value: "Password123" },
       });
 
       fireEvent.click(screen.getByRole("button", { name: /create account/i }));
 
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /loading/i })).toBeDisabled();
+        expect(screen.getByRole("button", { name: /create account/i })).toBeDisabled();
       });
     });
   });
 
   describe("validation", () => {
-    it("shows error for short password", async () => {
+    it("shows error when password requirements not met", async () => {
       render(<SignUpPage />);
 
       fireEvent.change(screen.getByLabelText(/first name/i), {
@@ -180,18 +186,9 @@ describe("SignUpPage", () => {
       fireEvent.click(screen.getByRole("button", { name: /create account/i }));
 
       await waitFor(() => {
-        // The error message appears in an error alert (red text)
-        // There are two matching elements - the hint text and the error alert
-        const errorMessages = screen.getAllByText(
-          /password must be at least 8 characters/i
-        );
-        // Should have the error message displayed (at least 2 - hint + error)
-        expect(errorMessages.length).toBeGreaterThanOrEqual(2);
-        // The error alert has red text class
-        const errorAlert = errorMessages.find((el) =>
-          el.className.includes("text-red")
-        );
-        expect(errorAlert).toBeDefined();
+        expect(
+          screen.getByText(/please meet all password requirements/i)
+        ).toBeInTheDocument();
       });
 
       // Should not call signup
@@ -215,7 +212,7 @@ describe("SignUpPage", () => {
         target: { value: "existing@example.com" },
       });
       fireEvent.change(screen.getByLabelText(/password/i), {
-        target: { value: "password123" },
+        target: { value: "Password123" },
       });
 
       fireEvent.click(screen.getByRole("button", { name: /create account/i }));
@@ -242,7 +239,7 @@ describe("SignUpPage", () => {
         target: { value: "john@example.com" },
       });
       fireEvent.change(screen.getByLabelText(/password/i), {
-        target: { value: "password123" },
+        target: { value: "Password123" },
       });
 
       fireEvent.click(screen.getByRole("button", { name: /create account/i }));
@@ -271,7 +268,7 @@ describe("SignUpPage", () => {
         target: { value: "john@example.com" },
       });
       fireEvent.change(screen.getByLabelText(/password/i), {
-        target: { value: "password123" },
+        target: { value: "Password123" },
       });
 
       fireEvent.click(screen.getByRole("button", { name: /create account/i }));
@@ -296,7 +293,7 @@ describe("SignUpPage", () => {
         target: { value: "john@example.com" },
       });
       fireEvent.change(screen.getByLabelText(/password/i), {
-        target: { value: "password123" },
+        target: { value: "Password123" },
       });
 
       fireEvent.click(screen.getByRole("button", { name: /create account/i }));
@@ -321,15 +318,13 @@ describe("SignUpPage", () => {
         target: { value: "john@example.com" },
       });
       fireEvent.change(screen.getByLabelText(/password/i), {
-        target: { value: "password123" },
+        target: { value: "Password123" },
       });
 
       fireEvent.click(screen.getByRole("button", { name: /create account/i }));
 
       await waitFor(() => {
-        expect(
-          screen.getByRole("link", { name: /back to sign in/i })
-        ).toBeInTheDocument();
+        expect(screen.getByText(/back to sign in/i)).toBeInTheDocument();
       });
     });
   });

@@ -13,21 +13,22 @@ class TestJWTDecoderInit:
     """Tests for JWTDecoder initialization."""
 
     def test_default_initialization(self):
-        """Test decoder initializes with default settings."""
-        with patch("app.users.jwt_decoder.settings") as mock_settings:
-            mock_settings.supabase_jwt_secret = "test-secret"
+        """Test decoder initializes with JWKS-based verification."""
+        decoder = JWTDecoder()
 
-            decoder = JWTDecoder()
+        # Uses asymmetric algorithms for JWKS
+        assert "RS256" in decoder.algorithms
+        assert "ES256" in decoder.algorithms
+        assert decoder.jwks_redis_key == "supabase:jwks"
 
-            assert decoder.jwt_secret == "test-secret"
-            assert "RS256" in decoder.algorithms
-            assert "ES256" in decoder.algorithms
+    def test_algorithms_are_asymmetric_only(self):
+        """Test decoder only uses asymmetric algorithms for security."""
+        decoder = JWTDecoder()
 
-    def test_custom_jwt_secret(self):
-        """Test decoder with custom JWT secret."""
-        decoder = JWTDecoder(jwt_secret="custom-secret")
-
-        assert decoder.jwt_secret == "custom-secret"
+        # Should not include symmetric algorithms like HS256
+        assert "HS256" not in decoder.algorithms
+        assert "HS384" not in decoder.algorithms
+        assert "HS512" not in decoder.algorithms
 
 
 class TestGetJWKS:

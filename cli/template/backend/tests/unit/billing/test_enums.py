@@ -26,10 +26,10 @@ class TestPaymentStatus:
         assert PaymentStatus.CANCELLED == "cancelled"
         assert PaymentStatus.CANCELLED.value == "cancelled"
 
-    def test_refunded_status(self):
-        """Test refunded status value."""
-        assert PaymentStatus.REFUNDED == "refunded"
-        assert PaymentStatus.REFUNDED.value == "refunded"
+    def test_expired_status(self):
+        """Test expired status value."""
+        assert PaymentStatus.EXPIRED == "expired"
+        assert PaymentStatus.EXPIRED.value == "expired"
 
     def test_status_is_string_enum(self):
         """Test that status values are strings."""
@@ -38,7 +38,7 @@ class TestPaymentStatus:
 
     def test_all_statuses_available(self):
         """Test all expected statuses exist."""
-        expected = {"pending", "success", "failed", "cancelled", "refunded"}
+        expected = {"pending", "success", "failed", "cancelled", "expired"}
         actual = {s.value for s in PaymentStatus}
         assert actual == expected
 
@@ -56,15 +56,10 @@ class TestPaymentMethod:
         assert PaymentMethod.BANK_TRANSFER == "bank_transfer"
         assert PaymentMethod.BANK_TRANSFER.value == "bank_transfer"
 
-    def test_ussd_method(self):
-        """Test USSD payment method."""
-        assert PaymentMethod.USSD == "ussd"
-        assert PaymentMethod.USSD.value == "ussd"
-
-    def test_qr_method(self):
-        """Test QR payment method."""
-        assert PaymentMethod.QR == "qr"
-        assert PaymentMethod.QR.value == "qr"
+    def test_unknown_method(self):
+        """Test unknown payment method."""
+        assert PaymentMethod.UNKNOWN == "unknown"
+        assert PaymentMethod.UNKNOWN.value == "unknown"
 
     def test_method_is_string_enum(self):
         """Test that method values are strings."""
@@ -73,7 +68,7 @@ class TestPaymentMethod:
 
     def test_all_methods_available(self):
         """Test all expected methods exist."""
-        expected = {"card", "bank_transfer", "ussd", "qr"}
+        expected = {"card", "bank_transfer", "unknown"}
         actual = {m.value for m in PaymentMethod}
         assert actual == expected
 
@@ -85,11 +80,6 @@ class TestPaymentProvider:
         """Test Nomba provider value."""
         assert PaymentProvider.NOMBA == "nomba"
         assert PaymentProvider.NOMBA.value == "nomba"
-
-    def test_paystack_provider(self):
-        """Test Paystack provider value."""
-        assert PaymentProvider.PAYSTACK == "paystack"
-        assert PaymentProvider.PAYSTACK.value == "paystack"
 
     def test_stripe_provider(self):
         """Test Stripe provider value."""
@@ -103,7 +93,7 @@ class TestPaymentProvider:
 
     def test_all_providers_available(self):
         """Test all expected providers exist."""
-        expected = {"nomba", "paystack", "stripe"}
+        expected = {"nomba", "stripe"}
         actual = {p.value for p in PaymentProvider}
         assert actual == expected
 
@@ -119,7 +109,7 @@ class TestEnumComparisons:
     def test_method_equality_with_string(self):
         """Test method can be compared with string."""
         assert PaymentMethod.CARD == "card"
-        assert PaymentMethod.USSD != "card"
+        assert PaymentMethod.BANK_TRANSFER != "card"
 
     def test_provider_equality_with_string(self):
         """Test provider can be compared with string."""

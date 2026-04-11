@@ -1,16 +1,15 @@
 # Core
-fastapi==0.124.0
-uvicorn[standard]==0.38.0
+fastapi==0.135.3
+uvicorn[standard]==0.44.0
 pydantic[email]==2.12.5
-pydantic-settings==2.12.0
+pydantic-settings==2.13.1
 
-# Database - SQLAlchemy 2.0
-sqlalchemy[asyncio]==2.0.44
-asyncpg==0.30.0
-alembic==1.17.2
+# Database - Tortoise ORM
+tortoise-orm[asyncpg]==1.1.7
+asyncpg==0.31.0
 
 # Redis
-redis==7.1.0
+redis==7.4.0
 
 # Auth & Security
 python-jose[cryptography]==3.3.0
@@ -18,7 +17,7 @@ bcrypt==4.2.1
 httpx==0.28.1
 itsdangerous==2.2.0  # Required by Starlette SessionMiddleware
 
-# Payment Providers (Stripe needs SDK, Paystack uses httpx API)
+# Payment Providers
 stripe==11.4.1
 
 # Rate Limiting
@@ -28,13 +27,13 @@ slowapi==0.1.9
 python-dotenv==1.0.1
 python-multipart==0.0.20
 aiofiles==24.1.0
-jinja2==3.1.4
+jinja2==3.1.6
 
 # Monitoring (optional - production)
 sentry-sdk[fastapi]==2.47.0
 
 # Testing
-pytest==9.0.2
+pytest==9.0.3
 pytest-asyncio==1.3.0
-pytest-cov==6.0.0
-aiosqlite==0.20.0
+pytest-cov==7.1.0
+aiosqlite==0.22.1

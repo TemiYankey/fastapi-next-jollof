@@ -1,12 +1,10 @@
-"""User authentication routes using SQLAlchemy 2.0."""
+"""User routes - all operations for the authenticated user."""
 
 import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
 from app.core.rate_limiter import AUTH_LIMIT, GENERAL_LIMIT, limiter
 from app.users.auth import get_current_user, get_or_create_current_user
 from app.users.models import User
@@ -16,20 +14,15 @@ from app.users.schemas import (
     UserResponse,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/me", tags=["User"])
 logger = logging.getLogger("app.users")
 
 
-# Root /me endpoint - all sub-routes are nested under this
-me_router = APIRouter(prefix="/me", tags=["User"])
-
-
-@me_router.get("", response_model=UserResponse)
+@router.get("", response_model=UserResponse)
 @limiter.limit(AUTH_LIMIT)
 async def get_me(
     request: Request,
     current_user: User = Depends(get_or_create_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
     """Get current user information. Creates user in DB if not exists."""
     now = datetime.now(timezone.utc)
@@ -39,6 +32,7 @@ async def get_me(
 
     if should_update:
         current_user.last_login = now
+        await current_user.save()
 
     return UserResponse(
         id=str(current_user.id),
@@ -49,7 +43,7 @@ async def get_me(
     )
 
 
-@me_router.get("/dashboard")
+@router.get("/dashboard")
 @limiter.limit(GENERAL_LIMIT)
 async def get_dashboard(
     request: Request,
@@ -61,10 +55,8 @@ async def get_dashboard(
             "id": str(current_user.id),
             "email": current_user.email,
             "full_name": current_user.full_name,
-            "credits": current_user.credits,
         },
         "stats": {
-            "credits_balance": current_user.credits,
             "member_since": current_user.created_at.isoformat(),
             "last_login": current_user.last_login.isoformat()
             if current_user.last_login
@@ -73,12 +65,11 @@ async def get_dashboard(
     }
 
 
-@me_router.get("/profile", response_model=CompleteUserProfileSchema)
+@router.get("/profile", response_model=CompleteUserProfileSchema)
 @limiter.limit(GENERAL_LIMIT)
 async def get_profile(
     request: Request,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
     """Get complete user profile with all related data."""
     profile = current_user.profile
@@ -104,13 +95,12 @@ async def get_profile(
     )
 
 
-@me_router.put("/profile", response_model=CompleteUserProfileSchema)
+@router.put("/profile", response_model=CompleteUserProfileSchema)
 @limiter.limit(GENERAL_LIMIT)
 async def update_profile(
     request: Request,
     profile_data: ProfileUpdateSchema,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
     """Update user profile."""
     profile = current_user.profile
@@ -120,6 +110,7 @@ async def update_profile(
     # Update user fields
     if profile_data.full_name is not None:
         current_user.full_name = profile_data.full_name
+        await current_user.save()
 
     # Update profile fields
     update_fields = [
@@ -138,6 +129,8 @@ async def update_profile(
         value = getattr(profile_data, field, None)
         if value is not None:
             setattr(profile, field, value)
+
+    await profile.save()
 
     return CompleteUserProfileSchema(
         id=str(current_user.id),
@@ -158,18 +151,12 @@ async def update_profile(
     )
 
 
-@me_router.delete("/delete-account")
+@router.delete("/account")
 @limiter.limit(AUTH_LIMIT)
 async def delete_account(
     request: Request,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
     """Delete user account and all associated data."""
-    await db.delete(current_user)
-    await db.flush()
+    await current_user.delete()
     return {"success": True}
-
-
-# Include the /me router
-router.include_router(me_router)

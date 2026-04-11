@@ -15,17 +15,12 @@ from app.core.config import settings
 from app.core.constants import (
     API_DESCRIPTION,
     API_TITLE,
-    SHUTDOWN_MESSAGE,
-    SHUTDOWN_SUCCESS_MESSAGE,
-    STARTUP_MESSAGE,
-    STARTUP_SUCCESS_MESSAGE,
 )
-from app.core.database import close_db, init_db
+from app.core.database import init_db
 from app.core.logger import log_validation_error, setup_logging
 from app.core.rate_limiter import limiter, rate_limit_exceeded_handler
 from app.core.redis import redis_service
-from app.billing.routes import router as billing_router
-from app.users.routes import router as users_router
+from app.core.router import api_router
 
 setup_logging()
 
@@ -68,63 +63,43 @@ else:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan handler."""
+    """
+    Application lifespan context manager.
+
+    Handles startup and shutdown events in a single context.
+    Everything before yield runs on startup, after yield runs on shutdown.
+    """
     # Startup
-    logger.info(STARTUP_MESSAGE)
-    logger.info(f"Debug mode: {settings.debug}")
-
-    # Initialize database
-    try:
-        await init_db()
-        logger.info("Database initialized successfully")
-    except Exception as e:
-        logger.error(f"Database initialization failed: {e}")
-        if not settings.debug:
-            raise
-
-    # Initialize Redis connection
     try:
         await redis_service.connect()
         logger.info("Redis connected successfully")
     except Exception as e:
         logger.error(f"Redis connection failed: {e}")
-        # Don't fail startup if Redis is not available in development
         if not settings.debug:
             raise
 
-    logger.info(STARTUP_SUCCESS_MESSAGE)
-
-    yield
+    yield  # Application runs here
 
     # Shutdown
-    logger.info(SHUTDOWN_MESSAGE)
-
-    # Close database connections
-    try:
-        await close_db()
-        logger.info("Database connections closed")
-    except Exception as e:
-        logger.error(f"Database close error: {e}")
-
-    # Close Redis connection
     try:
         await redis_service.disconnect()
         logger.info("Redis disconnected")
     except Exception as e:
         logger.error(f"Redis disconnect error: {e}")
 
-    logger.info(SHUTDOWN_SUCCESS_MESSAGE)
 
-
-# Create FastAPI app
+# Create FastAPI app with lifespan
 app = FastAPI(
     title=API_TITLE,
     description=API_DESCRIPTION,
     version="1.0.0",
+    lifespan=lifespan,
     docs_url="/docs" if settings.environment != "production" else None,
     redoc_url="/redoc" if settings.environment != "production" else None,
-    lifespan=lifespan,
 )
+
+# Initialize Tortoise ORM
+init_db(app)
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
@@ -178,16 +153,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         )
 
 
-# Include routers
-app.include_router(users_router, prefix="/api/auth", tags=["Authentication"])
-app.include_router(billing_router, prefix="/api/billing", tags=["Billing"])
-
-
-# Health check endpoint
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy", "app": settings.app_name}
+# Include API router
+app.include_router(api_router)
 
 
 @app.get("/api/health")
@@ -199,8 +166,8 @@ async def api_health_check():
 if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",
-        host="0.0.0.0",
-        port=8000,
+        host=settings.host,
+        port=settings.port,
         reload=settings.debug,
         log_level="info",
     )

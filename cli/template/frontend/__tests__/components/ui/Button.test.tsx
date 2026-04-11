@@ -78,12 +78,6 @@ describe("Button", () => {
   });
 
   describe("loading state", () => {
-    it("shows loading indicator when loading", () => {
-      render(<Button loading>Submit</Button>);
-
-      expect(screen.getByRole("button")).toHaveTextContent("Loading...");
-    });
-
     it("is disabled when loading", () => {
       render(<Button loading>Submit</Button>);
 
@@ -98,11 +92,10 @@ describe("Button", () => {
       expect(button.innerHTML).toContain("animate-spin");
     });
 
-    it("hides children content when loading", () => {
+    it("still shows children content when loading", () => {
       render(<Button loading>Submit Form</Button>);
 
-      expect(screen.getByRole("button")).not.toHaveTextContent("Submit Form");
-      expect(screen.getByRole("button")).toHaveTextContent("Loading...");
+      expect(screen.getByRole("button")).toHaveTextContent("Submit Form");
     });
   });
 

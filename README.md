@@ -215,10 +215,6 @@ function Component() {
 2. Deploy to Vercel/similar
 3. Set production environment variables
 
-## Acknowledgments
-
-This boilerplate is based on patterns from [Writera](https://github.com/your-writera-project) - a production application that has battle-tested these auth patterns.
-
 ## License
 
 MIT License - Use this boilerplate for any project!

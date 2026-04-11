@@ -15,11 +15,11 @@ from app.users.schemas import UserResponse
 
 # Create test app
 app = FastAPI()
-app.include_router(router, prefix="/users")
+app.include_router(router)  # Router already has /me prefix
 
 
 class TestMeEndpoint:
-    """Tests for GET /users/me endpoint."""
+    """Tests for GET /me endpoint."""
 
     @pytest.fixture
     def mock_user(self):
@@ -29,9 +29,9 @@ class TestMeEndpoint:
         user.supabase_id = "test-supabase-id"
         user.email = "test@example.com"
         user.full_name = "Test User"
-        user.credits = 100
         user.created_at = datetime.now(timezone.utc)
         user.last_login = datetime.now(timezone.utc) - timedelta(hours=2)
+        user.save = AsyncMock()
         return user
 
     @pytest.fixture
@@ -57,18 +57,16 @@ class TestMeEndpoint:
     async def test_get_me_success(self, mock_user):
         """Test successful get me endpoint."""
         with patch("app.users.routes.get_or_create_current_user") as mock_auth:
-            with patch("app.users.routes.get_db") as mock_db:
-                mock_auth.return_value = mock_user
-                mock_db.return_value = AsyncMock()
+            mock_auth.return_value = mock_user
 
-                client = TestClient(app)
+            client = TestClient(app)
 
-                # We need to mock the limiter too
-                with patch("app.users.routes.limiter"):
-                    response = client.get("/users/me")
+            # We need to mock the limiter too
+            with patch("app.users.routes.limiter"):
+                response = client.get("/me")
 
-                # Note: In real tests, you'd need to properly set up auth headers
-                # This test demonstrates the structure
+            # Note: In real tests, you'd need to properly set up auth headers
+            # This test demonstrates the structure
 
     @pytest.mark.asyncio
     async def test_get_me_updates_last_login(self, mock_user):
@@ -101,7 +99,7 @@ class TestMeEndpoint:
 
 
 class TestDashboardEndpoint:
-    """Tests for GET /users/me/dashboard endpoint."""
+    """Tests for GET /me/dashboard endpoint."""
 
     @pytest.fixture
     def mock_user(self):
@@ -124,17 +122,15 @@ class TestDashboardEndpoint:
                 "id": str(mock_user.id),
                 "email": mock_user.email,
                 "full_name": mock_user.full_name,
-                "credits": mock_user.credits,
             },
             "stats": {
-                "credits_balance": mock_user.credits,
                 "member_since": mock_user.created_at.isoformat(),
                 "last_login": mock_user.last_login.isoformat(),
             },
         }
 
         assert dashboard_data["user"]["email"] == "test@example.com"
-        assert dashboard_data["stats"]["credits_balance"] == 100
+        assert "member_since" in dashboard_data["stats"]
 
     @pytest.mark.asyncio
     async def test_dashboard_handles_null_last_login(self, mock_user):
@@ -159,6 +155,7 @@ class TestProfileEndpoints:
         user.email = "test@example.com"
         user.full_name = "Test User"
         user.created_at = datetime.now(timezone.utc)
+        user.save = AsyncMock()
 
         profile = MagicMock(spec=UserProfile)
         profile.bio = "Test bio"
@@ -172,6 +169,7 @@ class TestProfileEndpoints:
         profile.current_position = "Developer"
         profile.company = "Test Co"
         profile.theme = "light"
+        profile.save = AsyncMock()
 
         user.profile = profile
         return user
@@ -243,7 +241,7 @@ class TestProfileEndpoints:
 
 
 class TestDeleteAccountEndpoint:
-    """Tests for DELETE /users/me/delete-account endpoint."""
+    """Tests for DELETE /me/account endpoint."""
 
     @pytest.fixture
     def mock_user(self):
@@ -251,19 +249,16 @@ class TestDeleteAccountEndpoint:
         user = MagicMock(spec=User)
         user.id = uuid4()
         user.email = "test@example.com"
+        user.delete = AsyncMock()
         return user
 
     @pytest.mark.asyncio
     async def test_delete_account_success(self, mock_user):
         """Test successful account deletion."""
-        mock_db = AsyncMock()
+        # Simulate Tortoise ORM deletion
+        await mock_user.delete()
 
-        # Simulate deletion
-        await mock_db.delete(mock_user)
-        await mock_db.flush()
-
-        mock_db.delete.assert_called_once_with(mock_user)
-        mock_db.flush.assert_called_once()
+        mock_user.delete.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_delete_account_returns_success(self, mock_user):

@@ -20,7 +20,7 @@ npx create-jollof-app my-app
 Or with options:
 
 ```bash
-npx create-jollof-app my-app --theme emerald --payment nomba
+npx create-jollof-app my-app --theme emerald --payment stripe --email resend
 ```
 
 ## Interactive Mode
@@ -34,9 +34,8 @@ npx create-jollof-app
 You'll be prompted to choose:
 - **Project name** - Your app's name
 - **Color theme** - Brand color (indigo, violet, blue, emerald, rose, amber, cyan, orange)
-- **Payment provider** - Nomba (ready), Stripe (coming soon), Paystack (coming soon)
-- **Email provider** - Resend or skip
-- **Include examples** - Example pages and components
+- **Payment provider** - Nomba, Stripe, or Paystack
+- **Email provider** - Resend, Brevo, or none
 - **Git init** - Initialize a git repository
 - **Install deps** - Install dependencies automatically
 
@@ -46,6 +45,9 @@ You'll be prompted to choose:
 |--------|-------------|
 | `-t, --theme <theme>` | Color theme (indigo, violet, blue, emerald, rose, amber, cyan, orange) |
 | `-p, --payment <provider>` | Payment provider (nomba, stripe, paystack) |
+| `-e, --email <provider>` | Email provider (resend, brevo, none) |
+| `--frontend-port <port>` | Frontend port (default: 3000) |
+| `--backend-port <port>` | Backend port (default: 8000) |
 | `--no-git` | Skip git initialization |
 | `--no-install` | Skip dependency installation |
 | `-h, --help` | Display help |
@@ -54,17 +56,17 @@ You'll be prompted to choose:
 ## What's Included
 
 ### Backend (FastAPI)
-- FastAPI with async SQLAlchemy 2.0
+- FastAPI with async Tortoise ORM
 - Supabase authentication integration
-- Payment processing with Nomba (Stripe/Paystack coming soon)
-- Email service with Resend/Brevo
+- Payment processing (Nomba, Stripe, Paystack)
+- Email service (Resend, Brevo)
 - Rate limiting with SlowAPI
 - Redis caching
 - Comprehensive test suite (pytest)
 - Alembic database migrations
 
-### Frontend (Next.js 16)
-- Next.js 16 with React 19
+### Frontend (Next.js 15)
+- Next.js 15 with React 19
 - Supabase Auth with SSR
 - TanStack Query for data fetching
 - Zustand state management
@@ -77,7 +79,7 @@ You'll be prompted to choose:
 - Email/password authentication
 - Protected routes
 - User profiles
-- Credit/subscription billing
+- Credits-based billing
 - Payment history
 - Dark mode support
 
@@ -95,6 +97,21 @@ cd frontend && npm run dev
 
 # Start backend (Terminal 2)
 cd backend && source venv/bin/activate && uvicorn app.main:app --reload
+```
+
+## Running Tests
+
+### Frontend Tests
+```bash
+cd frontend
+npm test
+```
+
+### Backend Tests
+```bash
+cd backend
+source venv/bin/activate
+pytest tests/ -v
 ```
 
 ## Color Themes

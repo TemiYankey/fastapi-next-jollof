@@ -127,6 +127,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
         }
+      } else if (event === "TOKEN_REFRESHED") {
+        // Token refreshed - no need to refetch user
+      } else if (event === "USER_UPDATED") {
+        // User updated in Supabase - could refetch if needed
+      } else if (event === "INITIAL_SESSION") {
+        // Initial session load - handled by getInitialSession
+        return;
       }
 
       if (initialLoadComplete) {
@@ -137,7 +144,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [queryClient, router, initialLoadComplete, pathname, setUser, clearUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient, router, initialLoadComplete]);
 
   useEffect(() => {
     const checkRecoveryNavigation = async () => {
@@ -167,15 +175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(error.message);
     }
 
-    try {
-      const user = await authApi.me();
-      setUser(user);
-    } catch {
-      await robustLogout();
-      throw new Error(
-        "We couldn't log you in. Please try again or contact support."
-      );
-    }
+    // User fetch is handled by onAuthStateChange SIGNED_IN event
+    // This prevents duplicate API calls and works for all sign-in methods
   };
 
   const signup = async (data: SignupData) => {
@@ -204,10 +205,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loginWithGoogle = async () => {
+    // Preserve ?next param through OAuth flow
+    const urlParams = new URLSearchParams(window.location.search);
+    const next = urlParams.get("next");
+    const callbackUrl = next
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+      : `${window.location.origin}/auth/callback`;
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: callbackUrl,
         queryParams: {
           access_type: "offline",
           prompt: "consent",

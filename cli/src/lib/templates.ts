@@ -110,48 +110,74 @@ export function updateTailwindConfig(content: string, primaryColor: string): str
 /**
  * Get the list of template files to apply.
  * @param includeDocker - Whether to include Docker files
+ * @param projectType - The project type (fullstack, backend, frontend)
  * @returns Array of [templateName, outputPath] tuples
  */
-export function getTemplateFiles(includeDocker: boolean): [string, string][] {
-  const baseTemplates: [string, string][] = [
-    ["backend.env.hbs", "backend/.env.example"],
-    ["backend.env.test.hbs", "backend/.env.test"],
-    ["frontend.env.hbs", "frontend/.env.example"],
-    ["requirements.txt.hbs", "backend/requirements.txt"],
-    ["config.py.hbs", "backend/app/core/config.py"],
-    ["billing-providers-init.py.hbs", "backend/app/billing/providers/__init__.py"],
-    ["billing-enums.py.hbs", "backend/app/billing/enums.py"],
-    ["billing-models.py.hbs", "backend/app/billing/models.py"],
-    ["billing-routes.py.hbs", "backend/app/billing/routes.py"],
-    ["email-providers-init.py.hbs", "backend/app/emails/providers/__init__.py"],
-    ["email-enums.py.hbs", "backend/app/emails/enums.py"],
-    ["email-service.py.hbs", "backend/app/emails/service.py"],
-    ["backend-makefile.hbs", "backend/Makefile"],
-    ["frontend-makefile.hbs", "frontend/Makefile"],
-    ["test-email-providers.py.hbs", "backend/tests/unit/emails/test_providers.py"],
-    ["test-email-factories.py.hbs", "backend/tests/unit/emails/factories.py"],
-    ["test-email-service.py.hbs", "backend/tests/unit/emails/test_service.py"],
-    ["test-email-schemas.py.hbs", "backend/tests/unit/emails/test_schemas.py"],
-    ["test-billing-enums.py.hbs", "backend/tests/unit/billing/test_enums.py"],
-    ["test-billing-models.py.hbs", "backend/tests/unit/billing/test_models.py"],
-    ["test-billing-routes.py.hbs", "backend/tests/unit/billing/test_routes.py"],
-    ["test-config.py.hbs", "backend/tests/unit/core/test_config.py"],
-    ["conftest.py.hbs", "backend/tests/conftest.py"],
-    ["gitignore.hbs", ".gitignore"],
-  ];
+export function getTemplateFiles(includeDocker: boolean, projectType: string = "fullstack"): [string, string][] {
+  const includeBackend = projectType !== "frontend";
+  const includeFrontend = projectType !== "backend";
 
-  if (includeDocker) {
-    return [
-      ...baseTemplates,
-      ["docker-compose.yml.hbs", "docker-compose.yml"],
-      ["backend-dockerfile.hbs", "backend/Dockerfile"],
-      ["frontend-dockerfile.hbs", "frontend/Dockerfile"],
-      ["backend-dockerignore.hbs", "backend/.dockerignore"],
-      ["frontend-dockerignore.hbs", "frontend/.dockerignore"],
-    ];
+  const templates: [string, string][] = [];
+
+  // Backend templates
+  if (includeBackend) {
+    templates.push(
+      ["backend.env.hbs", "backend/.env.example"],
+      ["backend.env.test.hbs", "backend/.env.test"],
+      ["requirements.txt.hbs", "backend/requirements.txt"],
+      ["config.py.hbs", "backend/app/core/config.py"],
+      ["billing-providers-init.py.hbs", "backend/app/billing/providers/__init__.py"],
+      ["billing-enums.py.hbs", "backend/app/billing/enums.py"],
+      ["billing-models.py.hbs", "backend/app/billing/models.py"],
+      ["billing-routes.py.hbs", "backend/app/billing/routes.py"],
+      ["email-providers-init.py.hbs", "backend/app/emails/providers/__init__.py"],
+      ["email-enums.py.hbs", "backend/app/emails/enums.py"],
+      ["email-service.py.hbs", "backend/app/emails/service.py"],
+      ["backend-makefile.hbs", "backend/Makefile"],
+      ["test-email-providers.py.hbs", "backend/tests/unit/emails/test_providers.py"],
+      ["test-email-factories.py.hbs", "backend/tests/unit/emails/factories.py"],
+      ["test-email-service.py.hbs", "backend/tests/unit/emails/test_service.py"],
+      ["test-email-schemas.py.hbs", "backend/tests/unit/emails/test_schemas.py"],
+      ["test-billing-enums.py.hbs", "backend/tests/unit/billing/test_enums.py"],
+      ["test-billing-models.py.hbs", "backend/tests/unit/billing/test_models.py"],
+      ["test-billing-routes.py.hbs", "backend/tests/unit/billing/test_routes.py"],
+      ["test-config.py.hbs", "backend/tests/unit/core/test_config.py"],
+      ["conftest.py.hbs", "backend/tests/conftest.py"]
+    );
   }
 
-  return baseTemplates;
+  // Frontend templates
+  if (includeFrontend) {
+    templates.push(
+      ["frontend.env.hbs", "frontend/.env.example"],
+      ["frontend-makefile.hbs", "frontend/Makefile"]
+    );
+  }
+
+  // Root templates (always include gitignore)
+  templates.push(["gitignore.hbs", ".gitignore"]);
+
+  // Docker templates
+  if (includeDocker) {
+    if (includeBackend && includeFrontend) {
+      // Full stack docker-compose
+      templates.push(["docker-compose.yml.hbs", "docker-compose.yml"]);
+    }
+    if (includeBackend) {
+      templates.push(
+        ["backend-dockerfile.hbs", "backend/Dockerfile"],
+        ["backend-dockerignore.hbs", "backend/.dockerignore"]
+      );
+    }
+    if (includeFrontend) {
+      templates.push(
+        ["frontend-dockerfile.hbs", "frontend/Dockerfile"],
+        ["frontend-dockerignore.hbs", "frontend/.dockerignore"]
+      );
+    }
+  }
+
+  return templates;
 }
 
 /**

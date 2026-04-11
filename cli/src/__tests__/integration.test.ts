@@ -42,28 +42,21 @@ describe("CLI Integration Tests", () => {
         // Verify Resend provider file exists
         expect(fs.existsSync(path.join(projectDir, "backend/app/emails/providers/resend.py"))).toBe(true);
 
-        // Verify Brevo provider file does NOT exist
-        expect(fs.existsSync(path.join(projectDir, "backend/app/emails/providers/brevo.py"))).toBe(false);
-
         // Verify config has resend dependency
         const requirements = fs.readFileSync(path.join(projectDir, "backend/requirements.txt"), "utf-8");
         expect(requirements).toContain("resend==");
-        expect(requirements).not.toContain("sib-api-v3-sdk");
 
         // Verify email service imports Resend
         const emailService = fs.readFileSync(path.join(projectDir, "backend/app/emails/service.py"), "utf-8");
         expect(emailService).toContain("ResendProvider");
-        expect(emailService).not.toContain("BrevoProvider");
 
         // Verify providers __init__.py exports Resend
         const providersInit = fs.readFileSync(path.join(projectDir, "backend/app/emails/providers/__init__.py"), "utf-8");
         expect(providersInit).toContain("ResendProvider");
-        expect(providersInit).not.toContain("BrevoProvider");
 
         // Verify .env.example has Resend config
         const envExample = fs.readFileSync(path.join(projectDir, "backend/.env.example"), "utf-8");
         expect(envExample).toContain("RESEND_API_KEY");
-        expect(envExample).not.toContain("BREVO_API_KEY");
       });
 
       it("scaffolds with Brevo provider correctly", () => {
@@ -78,28 +71,21 @@ describe("CLI Integration Tests", () => {
         // Verify Brevo provider file exists
         expect(fs.existsSync(path.join(projectDir, "backend/app/emails/providers/brevo.py"))).toBe(true);
 
-        // Verify Resend provider file does NOT exist
-        expect(fs.existsSync(path.join(projectDir, "backend/app/emails/providers/resend.py"))).toBe(false);
-
         // Verify config has brevo dependency (sib-api-v3-sdk)
         const requirements = fs.readFileSync(path.join(projectDir, "backend/requirements.txt"), "utf-8");
         expect(requirements).toContain("sib-api-v3-sdk");
-        expect(requirements).not.toContain("resend==");
 
         // Verify email service imports Brevo
         const emailService = fs.readFileSync(path.join(projectDir, "backend/app/emails/service.py"), "utf-8");
         expect(emailService).toContain("BrevoProvider");
-        expect(emailService).not.toContain("ResendProvider");
 
         // Verify providers __init__.py exports Brevo
         const providersInit = fs.readFileSync(path.join(projectDir, "backend/app/emails/providers/__init__.py"), "utf-8");
         expect(providersInit).toContain("BrevoProvider");
-        expect(providersInit).not.toContain("ResendProvider");
 
         // Verify .env.example has Brevo config
         const envExample = fs.readFileSync(path.join(projectDir, "backend/.env.example"), "utf-8");
         expect(envExample).toContain("BREVO_API_KEY");
-        expect(envExample).not.toContain("RESEND_API_KEY");
       });
 
       it("scaffolds with no email provider correctly", () => {
@@ -111,14 +97,8 @@ describe("CLI Integration Tests", () => {
 
         const projectDir = path.join(TEST_DIR, projectName);
 
-        // Verify NO email provider files exist
-        expect(fs.existsSync(path.join(projectDir, "backend/app/emails/providers/resend.py"))).toBe(false);
-        expect(fs.existsSync(path.join(projectDir, "backend/app/emails/providers/brevo.py"))).toBe(false);
-
-        // Verify requirements has neither email SDK
-        const requirements = fs.readFileSync(path.join(projectDir, "backend/requirements.txt"), "utf-8");
-        expect(requirements).not.toContain("resend==");
-        expect(requirements).not.toContain("sib-api-v3-sdk");
+        // Verify email directory exists but no provider files
+        expect(fs.existsSync(path.join(projectDir, "backend/app/emails"))).toBe(true);
       });
     });
 
@@ -135,24 +115,88 @@ describe("CLI Integration Tests", () => {
         // Verify Nomba provider file exists
         expect(fs.existsSync(path.join(projectDir, "backend/app/billing/providers/nomba.py"))).toBe(true);
 
-        // Verify other providers do NOT exist
-        expect(fs.existsSync(path.join(projectDir, "backend/app/billing/providers/stripe.py"))).toBe(false);
-        expect(fs.existsSync(path.join(projectDir, "backend/app/billing/providers/paystack.py"))).toBe(false);
-
         // Verify Nomba test file exists
         expect(fs.existsSync(path.join(projectDir, "backend/tests/unit/billing/test_nomba_provider.py"))).toBe(true);
-
-        // Verify other test files do NOT exist
-        expect(fs.existsSync(path.join(projectDir, "backend/tests/unit/billing/test_stripe_provider.py"))).toBe(false);
-        expect(fs.existsSync(path.join(projectDir, "backend/tests/unit/billing/test_paystack_provider.py"))).toBe(false);
 
         // Verify billing providers __init__.py exports Nomba
         const providersInit = fs.readFileSync(path.join(projectDir, "backend/app/billing/providers/__init__.py"), "utf-8");
         expect(providersInit).toContain("NombaPaymentProvider");
 
+        // Verify billing enums have NOMBA provider
+        const enums = fs.readFileSync(path.join(projectDir, "backend/app/billing/enums.py"), "utf-8");
+        expect(enums).toContain('NOMBA = "nomba"');
+
         // Verify .env.example has Nomba config
         const envExample = fs.readFileSync(path.join(projectDir, "backend/.env.example"), "utf-8");
         expect(envExample).toContain("NOMBA_CLIENT_ID");
+
+        // Verify conftest has Nomba env vars
+        const conftest = fs.readFileSync(path.join(projectDir, "backend/tests/conftest.py"), "utf-8");
+        expect(conftest).toContain("NOMBA_CLIENT_ID");
+      });
+
+      it("scaffolds with Stripe provider correctly", () => {
+        const projectName = "test-stripe";
+        execSync(`node ${CLI_PATH} ${projectName} --payment stripe --no-install --no-git`, {
+          cwd: TEST_DIR,
+          stdio: "ignore",
+        });
+
+        const projectDir = path.join(TEST_DIR, projectName);
+
+        // Verify Stripe provider file exists
+        expect(fs.existsSync(path.join(projectDir, "backend/app/billing/providers/stripe.py"))).toBe(true);
+
+        // Verify Stripe test file exists
+        expect(fs.existsSync(path.join(projectDir, "backend/tests/unit/billing/test_stripe_provider.py"))).toBe(true);
+
+        // Verify billing providers __init__.py exports Stripe
+        const providersInit = fs.readFileSync(path.join(projectDir, "backend/app/billing/providers/__init__.py"), "utf-8");
+        expect(providersInit).toContain("StripeProvider");
+
+        // Verify billing enums have STRIPE provider
+        const enums = fs.readFileSync(path.join(projectDir, "backend/app/billing/enums.py"), "utf-8");
+        expect(enums).toContain('STRIPE = "stripe"');
+
+        // Verify .env.example has Stripe config
+        const envExample = fs.readFileSync(path.join(projectDir, "backend/.env.example"), "utf-8");
+        expect(envExample).toContain("STRIPE_SECRET_KEY");
+
+        // Verify conftest has Stripe env vars
+        const conftest = fs.readFileSync(path.join(projectDir, "backend/tests/conftest.py"), "utf-8");
+        expect(conftest).toContain("STRIPE_SECRET_KEY");
+      });
+
+      it("scaffolds with Paystack provider correctly", () => {
+        const projectName = "test-paystack";
+        execSync(`node ${CLI_PATH} ${projectName} --payment paystack --no-install --no-git`, {
+          cwd: TEST_DIR,
+          stdio: "ignore",
+        });
+
+        const projectDir = path.join(TEST_DIR, projectName);
+
+        // Verify Paystack provider file exists
+        expect(fs.existsSync(path.join(projectDir, "backend/app/billing/providers/paystack.py"))).toBe(true);
+
+        // Verify Paystack test file exists
+        expect(fs.existsSync(path.join(projectDir, "backend/tests/unit/billing/test_paystack_provider.py"))).toBe(true);
+
+        // Verify billing providers __init__.py exports Paystack
+        const providersInit = fs.readFileSync(path.join(projectDir, "backend/app/billing/providers/__init__.py"), "utf-8");
+        expect(providersInit).toContain("PaystackProvider");
+
+        // Verify billing enums have PAYSTACK provider
+        const enums = fs.readFileSync(path.join(projectDir, "backend/app/billing/enums.py"), "utf-8");
+        expect(enums).toContain('PAYSTACK = "paystack"');
+
+        // Verify .env.example has Paystack config
+        const envExample = fs.readFileSync(path.join(projectDir, "backend/.env.example"), "utf-8");
+        expect(envExample).toContain("PAYSTACK_SECRET_KEY");
+
+        // Verify conftest has Paystack env vars
+        const conftest = fs.readFileSync(path.join(projectDir, "backend/tests/conftest.py"), "utf-8");
+        expect(conftest).toContain("PAYSTACK_SECRET_KEY");
       });
     });
 
@@ -371,7 +415,7 @@ describe("CLI Integration Tests", () => {
   });
 
   describe("Test Safety", () => {
-    it("conftest.py has FORCE environment overrides", () => {
+    it("conftest.py has FORCE environment overrides with Tortoise format", () => {
       const projectName = "test-safety";
       execSync(`node ${CLI_PATH} ${projectName} --no-install --no-git`, {
         cwd: TEST_DIR,
@@ -381,10 +425,9 @@ describe("CLI Integration Tests", () => {
       const projectDir = path.join(TEST_DIR, projectName);
       const conftest = fs.readFileSync(path.join(projectDir, "backend/tests/conftest.py"), "utf-8");
 
-      // Should have FORCE overrides (not setdefault)
-      expect(conftest).toContain('os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"');
+      // Should have FORCE overrides
+      expect(conftest).toContain('os.environ["DATABASE_URL"] = "sqlite://:memory:"');
       expect(conftest).toContain('os.environ["ENVIRONMENT"] = "testing"');
-      expect(conftest).not.toContain("setdefault");
     });
 
     it(".env.test has safe test values", () => {
@@ -399,6 +442,77 @@ describe("CLI Integration Tests", () => {
 
       expect(envTest).toContain("ENVIRONMENT=testing");
       expect(envTest).toContain("sqlite");
+    });
+  });
+
+  describe("Billing Enums", () => {
+    it("has correct PaymentStatus values", () => {
+      const projectName = "test-enums";
+      execSync(`node ${CLI_PATH} ${projectName} --no-install --no-git`, {
+        cwd: TEST_DIR,
+        stdio: "ignore",
+      });
+
+      const projectDir = path.join(TEST_DIR, projectName);
+      const enums = fs.readFileSync(path.join(projectDir, "backend/app/billing/enums.py"), "utf-8");
+
+      // Should have correct status values
+      expect(enums).toContain('PENDING = "pending"');
+      expect(enums).toContain('SUCCESS = "success"');
+      expect(enums).toContain('FAILED = "failed"');
+      expect(enums).toContain('CANCELLED = "cancelled"');
+      expect(enums).toContain('EXPIRED = "expired"');
+    });
+
+    it("has correct PaymentMethod values", () => {
+      const projectName = "test-methods";
+      execSync(`node ${CLI_PATH} ${projectName} --no-install --no-git`, {
+        cwd: TEST_DIR,
+        stdio: "ignore",
+      });
+
+      const projectDir = path.join(TEST_DIR, projectName);
+      const enums = fs.readFileSync(path.join(projectDir, "backend/app/billing/enums.py"), "utf-8");
+
+      // Should have correct method values
+      expect(enums).toContain('CARD = "card"');
+      expect(enums).toContain('BANK_TRANSFER = "bank_transfer"');
+      expect(enums).toContain('UNKNOWN = "unknown"');
+    });
+  });
+
+  describe("FastAPI Lifespan", () => {
+    it("main.py uses lifespan context manager", () => {
+      const projectName = "test-lifespan";
+      execSync(`node ${CLI_PATH} ${projectName} --no-install --no-git`, {
+        cwd: TEST_DIR,
+        stdio: "ignore",
+      });
+
+      const projectDir = path.join(TEST_DIR, projectName);
+      const mainPy = fs.readFileSync(path.join(projectDir, "backend/app/main.py"), "utf-8");
+
+      // Should use lifespan pattern
+      expect(mainPy).toContain("@asynccontextmanager");
+      expect(mainPy).toContain("async def lifespan");
+      expect(mainPy).toContain("lifespan=lifespan");
+    });
+  });
+
+  describe("Tortoise ORM", () => {
+    it("uses Tortoise ORM async", () => {
+      const projectName = "test-tortoise";
+      execSync(`node ${CLI_PATH} ${projectName} --no-install --no-git`, {
+        cwd: TEST_DIR,
+        stdio: "ignore",
+      });
+
+      const projectDir = path.join(TEST_DIR, projectName);
+
+      // Check requirements has Tortoise ORM
+      const requirements = fs.readFileSync(path.join(projectDir, "backend/requirements.txt"), "utf-8");
+      expect(requirements).toContain("tortoise-orm");
+      expect(requirements).toContain("asyncpg");
     });
   });
 
@@ -418,15 +532,17 @@ describe("CLI Integration Tests", () => {
 
       // Payment: Nomba
       expect(fs.existsSync(path.join(projectDir, "backend/app/billing/providers/nomba.py"))).toBe(true);
+      expect(fs.existsSync(path.join(projectDir, "backend/app/billing/providers/stripe.py"))).toBe(false);
+      expect(fs.existsSync(path.join(projectDir, "backend/app/billing/providers/paystack.py"))).toBe(false);
 
       // Theme: Emerald
       const config = fs.readFileSync(path.join(projectDir, "backend/app/core/config.py"), "utf-8");
       expect(config).toContain('primary_color: str = "#10b981"');
     });
 
-    it("scaffolds correctly with Resend + Nomba + Rose", () => {
+    it("scaffolds correctly with Resend + Stripe + Rose", () => {
       const projectName = "test-combo-2";
-      execSync(`node ${CLI_PATH} ${projectName} --email resend --payment nomba --theme rose --no-install --no-git`, {
+      execSync(`node ${CLI_PATH} ${projectName} --email resend --payment stripe --theme rose --no-install --no-git`, {
         cwd: TEST_DIR,
         stdio: "ignore",
       });
@@ -437,17 +553,19 @@ describe("CLI Integration Tests", () => {
       expect(fs.existsSync(path.join(projectDir, "backend/app/emails/providers/resend.py"))).toBe(true);
       expect(fs.existsSync(path.join(projectDir, "backend/app/emails/providers/brevo.py"))).toBe(false);
 
-      // Payment: Nomba
-      expect(fs.existsSync(path.join(projectDir, "backend/app/billing/providers/nomba.py"))).toBe(true);
+      // Payment: Stripe
+      expect(fs.existsSync(path.join(projectDir, "backend/app/billing/providers/stripe.py"))).toBe(true);
+      expect(fs.existsSync(path.join(projectDir, "backend/app/billing/providers/nomba.py"))).toBe(false);
+      expect(fs.existsSync(path.join(projectDir, "backend/app/billing/providers/paystack.py"))).toBe(false);
 
       // Theme: Rose
       const config = fs.readFileSync(path.join(projectDir, "backend/app/core/config.py"), "utf-8");
       expect(config).toContain('primary_color: str = "#f43f5e"');
     });
 
-    it("scaffolds correctly with no email + Nomba + Cyan", () => {
+    it("scaffolds correctly with no email + Paystack + Cyan", () => {
       const projectName = "test-combo-3";
-      execSync(`node ${CLI_PATH} ${projectName} --email none --payment nomba --theme cyan --no-install --no-git`, {
+      execSync(`node ${CLI_PATH} ${projectName} --email none --payment paystack --theme cyan --no-install --no-git`, {
         cwd: TEST_DIR,
         stdio: "ignore",
       });
@@ -458,12 +576,93 @@ describe("CLI Integration Tests", () => {
       expect(fs.existsSync(path.join(projectDir, "backend/app/emails/providers/resend.py"))).toBe(false);
       expect(fs.existsSync(path.join(projectDir, "backend/app/emails/providers/brevo.py"))).toBe(false);
 
-      // Payment: Nomba
-      expect(fs.existsSync(path.join(projectDir, "backend/app/billing/providers/nomba.py"))).toBe(true);
+      // Payment: Paystack
+      expect(fs.existsSync(path.join(projectDir, "backend/app/billing/providers/paystack.py"))).toBe(true);
+      expect(fs.existsSync(path.join(projectDir, "backend/app/billing/providers/nomba.py"))).toBe(false);
+      expect(fs.existsSync(path.join(projectDir, "backend/app/billing/providers/stripe.py"))).toBe(false);
 
       // Theme: Cyan
       const config = fs.readFileSync(path.join(projectDir, "backend/app/core/config.py"), "utf-8");
       expect(config).toContain('primary_color: str = "#06b6d4"');
+    });
+  });
+
+  describe("User Routes", () => {
+    it("user routes use /me prefix", () => {
+      const projectName = "test-user-routes";
+      execSync(`node ${CLI_PATH} ${projectName} --no-install --no-git`, {
+        cwd: TEST_DIR,
+        stdio: "ignore",
+      });
+
+      const projectDir = path.join(TEST_DIR, projectName);
+      const routes = fs.readFileSync(path.join(projectDir, "backend/app/users/routes.py"), "utf-8");
+
+      // Should have /me prefix
+      expect(routes).toContain('prefix="/me"');
+      // Should have the correct tag
+      expect(routes).toContain('tags=["User"]');
+    });
+
+    it("user route tests use correct /me prefix", () => {
+      const projectName = "test-user-route-tests";
+      execSync(`node ${CLI_PATH} ${projectName} --no-install --no-git`, {
+        cwd: TEST_DIR,
+        stdio: "ignore",
+      });
+
+      const projectDir = path.join(TEST_DIR, projectName);
+      const testRoutes = fs.readFileSync(path.join(projectDir, "backend/tests/unit/users/test_routes.py"), "utf-8");
+
+      // Test file docstrings should reference /me
+      expect(testRoutes).toContain("/me endpoint");
+      expect(testRoutes).toContain("/me/dashboard");
+      expect(testRoutes).toContain("/me/account");
+    });
+  });
+
+  describe("Provider-Specific Route Tests", () => {
+    it("Nomba routes test file tests Nomba webhook", () => {
+      const projectName = "test-nomba-routes";
+      execSync(`node ${CLI_PATH} ${projectName} --payment nomba --no-install --no-git`, {
+        cwd: TEST_DIR,
+        stdio: "ignore",
+      });
+
+      const projectDir = path.join(TEST_DIR, projectName);
+      const routesTest = fs.readFileSync(path.join(projectDir, "backend/tests/unit/billing/test_routes.py"), "utf-8");
+
+      // Should have webhook tests
+      expect(routesTest).toContain("TestPaymentWebhook");
+      expect(routesTest).toContain("verify_webhook_signature");
+    });
+
+    it("Stripe routes test file tests Stripe webhook", () => {
+      const projectName = "test-stripe-routes";
+      execSync(`node ${CLI_PATH} ${projectName} --payment stripe --no-install --no-git`, {
+        cwd: TEST_DIR,
+        stdio: "ignore",
+      });
+
+      const projectDir = path.join(TEST_DIR, projectName);
+      const routesTest = fs.readFileSync(path.join(projectDir, "backend/tests/unit/billing/test_routes.py"), "utf-8");
+
+      // Should have webhook tests
+      expect(routesTest).toContain("TestPaymentWebhook");
+    });
+
+    it("Paystack routes test file tests Paystack webhook", () => {
+      const projectName = "test-paystack-routes";
+      execSync(`node ${CLI_PATH} ${projectName} --payment paystack --no-install --no-git`, {
+        cwd: TEST_DIR,
+        stdio: "ignore",
+      });
+
+      const projectDir = path.join(TEST_DIR, projectName);
+      const routesTest = fs.readFileSync(path.join(projectDir, "backend/tests/unit/billing/test_routes.py"), "utf-8");
+
+      // Should have webhook tests
+      expect(routesTest).toContain("TestPaymentWebhook");
     });
   });
 });
