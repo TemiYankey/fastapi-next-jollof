@@ -13,9 +13,7 @@ from app.core.config import settings
 from app.core.rate_limiter import (
     CHECKOUT_LIMIT,
     GENERAL_LIMIT,
-    PAYMENT_LIMIT,
     PUBLIC_LIMIT,
-    WEBHOOK_LIMIT,
     limiter,
 )
 from app.billing.enums import PaymentProvider, PaymentStatus
@@ -108,7 +106,7 @@ async def create_checkout_session(
 
 
 @router.get("/verify/{reference}", response_model=PaymentVerificationResponse)
-@limiter.limit(PAYMENT_LIMIT)
+@limiter.limit(GENERAL_LIMIT)
 async def verify_payment(
     request: Request,
     reference: str,
@@ -256,7 +254,6 @@ async def get_credits_overview(
 
 
 @router.post("/webhook/nomba")
-@limiter.limit(WEBHOOK_LIMIT)
 async def nomba_webhook(request: Request):
     """
     Handle Nomba webhook with security and idempotency.

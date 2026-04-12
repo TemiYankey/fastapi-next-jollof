@@ -2,26 +2,26 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
-    container_name: {{dbName}}_postgres
+    container_name: {{appName}}_postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: {{dbName}}
+      POSTGRES_DB: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d {{dbName}}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # Redis for rate limiting (slowapi) and caching
+  # Redis for rate limiting and caching
   redis:
     image: redis:7-alpine
-    container_name: {{dbName}}_redis
+    container_name: {{appName}}_redis
     restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
@@ -39,12 +39,12 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: {{dbName}}_backend
+    container_name: {{appName}}_backend
     restart: unless-stopped
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/{{dbName}}
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
       REDIS_URL: redis://redis:6379/0
     ports:
       - "{{backendPort}}:8000"
@@ -62,7 +62,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: {{dbName}}_frontend
+    container_name: {{appName}}_frontend
     restart: unless-stopped
     env_file:
       - ./frontend/.env.local

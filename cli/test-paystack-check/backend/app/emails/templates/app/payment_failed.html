@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Payment Failed - {{ app_name }}{% endblock %}
+
+{% block content %}
+<h2>Payment Unsuccessful</h2>
+
+<p>We were unable to process your recent payment. Don't worry — no charges were made to your account.</p>
+
+<div class="content-highlight" style="background-color: #fef2f2; border: 1px solid #fecaca;">
+    <p style="color: #991b1b; margin: 0;">
+        <strong>Reason:</strong> {{ reason | default('The payment could not be completed. Please try again.') }}
+    </p>
+</div>
+
+{% if reference %}
+<div class="details-box">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+        <tr>
+            <td style="padding: 12px 0;">
+                <span style="color: #71717a; font-size: 14px;">Reference</span>
+            </td>
+            <td style="padding: 12px 0; text-align: right;">
+                <span style="color: #18181b; font-size: 14px; font-weight: 500;">{{ reference }}</span>
+            </td>
+        </tr>
+    </table>
+</div>
+{% endif %}
+
+<p><strong>What you can do:</strong></p>
+<ul style="color: #52525b; padding-left: 20px;">
+    <li style="margin-bottom: 8px;">Check that your card details are correct</li>
+    <li style="margin-bottom: 8px;">Ensure you have sufficient funds</li>
+    <li style="margin-bottom: 8px;">Try a different payment method</li>
+    <li style="margin-bottom: 8px;">Contact your bank if the issue persists</li>
+</ul>
+
+<div class="button-container">
+    <a href="{{ retry_url | default('#') }}" class="button">Try Again</a>
+</div>
+
+<div class="divider"></div>
+
+<p class="text-muted text-small">
+    Need assistance? Our support team is here to help you complete your purchase.
+</p>
+{% endblock %}

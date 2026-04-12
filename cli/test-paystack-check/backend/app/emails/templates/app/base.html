@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>{% block title %}{{ app_name }}{% endblock %}</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style>
+        /* Reset */
+        body, table, td, p, a, li, blockquote {
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+        table, td {
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+        }
+        img {
+            -ms-interpolation-mode: bicubic;
+            border: 0;
+            height: auto;
+            line-height: 100%;
+            outline: none;
+            text-decoration: none;
+        }
+
+        /* Base */
+        body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background-color: #f4f4f5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        /* Container */
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, {{ primary_color }} 0%, {{ primary_color }}dd 100%);
+            padding: 40px 30px;
+            text-align: center;
+            border-radius: 12px 12px 0 0;
+        }
+        .logo {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 16px;
+        }
+        .header h1 {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.5px;
+        }
+
+        /* Content */
+        .content {
+            background-color: #ffffff;
+            padding: 40px 30px;
+        }
+        .content h2 {
+            color: #18181b;
+            font-size: 22px;
+            font-weight: 600;
+            margin: 0 0 16px 0;
+            letter-spacing: -0.3px;
+        }
+        .content p {
+            color: #52525b;
+            font-size: 16px;
+            line-height: 1.6;
+            margin: 0 0 16px 0;
+        }
+        .content-highlight {
+            background-color: #f4f4f5;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 24px 0;
+        }
+        .content-highlight p {
+            margin: 0;
+            color: #3f3f46;
+        }
+
+        /* Button */
+        .button-container {
+            text-align: center;
+            margin: 32px 0;
+        }
+        .button {
+            display: inline-block;
+            background-color: {{ primary_color }};
+            color: #ffffff !important;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            padding: 14px 32px;
+            border-radius: 8px;
+            transition: background-color 0.2s;
+        }
+        .button:hover {
+            background-color: {{ primary_color }}dd;
+        }
+        .button-secondary {
+            background-color: #f4f4f5;
+            color: #18181b !important;
+        }
+
+        /* Details Box */
+        .details-box {
+            background-color: #fafafa;
+            border: 1px solid #e4e4e7;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 24px 0;
+        }
+        .details-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e4e4e7;
+        }
+        .details-row:last-child {
+            border-bottom: none;
+        }
+        .details-label {
+            color: #71717a;
+            font-size: 14px;
+        }
+        .details-value {
+            color: #18181b;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Code/Token Display */
+        .code-display {
+            background-color: #18181b;
+            color: #ffffff;
+            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: 8px;
+            text-align: center;
+            padding: 24px;
+            border-radius: 8px;
+            margin: 24px 0;
+        }
+
+        /* Divider */
+        .divider {
+            height: 1px;
+            background-color: #e4e4e7;
+            margin: 32px 0;
+        }
+
+        /* Footer */
+        .footer {
+            background-color: #fafafa;
+            padding: 30px;
+            text-align: center;
+            border-radius: 0 0 12px 12px;
+            border-top: 1px solid #e4e4e7;
+        }
+        .footer p {
+            color: #a1a1aa;
+            font-size: 13px;
+            line-height: 1.5;
+            margin: 0 0 8px 0;
+        }
+        .footer a {
+            color: {{ primary_color }};
+            text-decoration: none;
+        }
+        .social-links {
+            margin: 16px 0;
+        }
+        .social-links a {
+            display: inline-block;
+            margin: 0 8px;
+        }
+
+        /* Utility */
+        .text-center { text-align: center; }
+        .text-muted { color: #a1a1aa; }
+        .text-small { font-size: 14px; }
+        .mt-0 { margin-top: 0; }
+        .mb-0 { margin-bottom: 0; }
+
+        /* Responsive */
+        @media screen and (max-width: 600px) {
+            .email-container {
+                width: 100% !important;
+            }
+            .header, .content, .footer {
+                padding: 24px 20px !important;
+            }
+            .button {
+                display: block;
+                width: 100%;
+                box-sizing: border-box;
+            }
+        }
+    </style>
+</head>
+<body>
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f4f5;">
+        <tr>
+            <td style="padding: 40px 20px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" class="email-container" style="margin: 0 auto; max-width: 600px; width: 100%;">
+                    <!-- Header -->
+                    <tr>
+                        <td class="header">
+                            {% if logo_url %}
+                            <img src="{{ logo_url }}" alt="{{ app_name }}" class="logo" width="48" height="48">
+                            {% else %}
+                            <div style="width: 48px; height: 48px; background-color: rgba(255,255,255,0.2); border-radius: 12px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;">
+                                <span style="color: #ffffff; font-size: 24px; font-weight: 700;">{{ app_name[0] | upper }}</span>
+                            </div>
+                            {% endif %}
+                            <h1>{{ app_name }}</h1>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td class="content">
+                            {% block content %}{% endblock %}
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td class="footer">
+                            {% block footer %}
+                            <p>&copy; {{ current_year }} {{ app_name }}. All rights reserved.</p>
+                            <p class="text-small">
+                                You're receiving this email because you have an account with {{ app_name }}.
+                            </p>
+                            {% if unsubscribe_url %}
+                            <p class="text-small">
+                                <a href="{{ unsubscribe_url }}">Unsubscribe</a> from these emails.
+                            </p>
+                            {% endif %}
+                            {% endblock %}
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

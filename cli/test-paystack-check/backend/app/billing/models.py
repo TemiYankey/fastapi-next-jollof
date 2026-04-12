@@ -1,0 +1,74 @@
+"""Billing models using Tortoise ORM."""
+
+from typing import TYPE_CHECKING
+
+from tortoise import fields
+
+from app.base.models import BaseModel
+from app.billing.enums import PaymentMethod, PaymentProvider, PaymentStatus
+
+if TYPE_CHECKING:
+    from app.users.models import User
+
+
+class Payment(BaseModel):
+    """Payment/transaction record."""
+
+    user: fields.ForeignKeyRelation["User"] = fields.ForeignKeyField(
+        "users.User", related_name="payments", on_delete=fields.CASCADE
+    )
+
+    # Purchase details
+    plan_id = fields.CharField(max_length=50)
+    plan_name = fields.CharField(max_length=255)
+    credits_purchased = fields.IntField()
+    amount = fields.DecimalField(max_digits=10, decimal_places=2)
+    currency = fields.CharField(max_length=3, default="NGN")
+    status = fields.CharEnumField(PaymentStatus, default=PaymentStatus.PENDING)
+    payment_method = fields.CharEnumField(PaymentMethod, default=PaymentMethod.CARD)
+    provider = fields.CharEnumField(PaymentProvider, default=PaymentProvider.PAYSTACK)
+
+    # Payment reference (internal)
+    reference = fields.CharField(max_length=255, unique=True, index=True)
+
+    # Provider-specific references
+    provider_order_reference = fields.CharField(max_length=255, null=True)
+    provider_payment_reference = fields.CharField(max_length=255, null=True)
+    checkout_url = fields.TextField(null=True)
+
+    # Metadata
+    completed_at = fields.DatetimeField(null=True)
+    raw_response = fields.JSONField(default=dict)
+
+    class Meta:
+        table = "payments"
+
+    def __str__(self) -> str:
+        return f"Payment({self.reference}, {self.status})"
+
+
+class Plan(BaseModel):
+    """Billing plan model."""
+
+    name = fields.CharField(max_length=100)
+    subtitle = fields.CharField(max_length=255, null=True)
+    price = fields.IntField()
+    credits = fields.IntField(default=0)
+    original_price = fields.IntField()
+    description = fields.TextField(null=True)
+    icon = fields.CharField(max_length=100, null=True)
+    features = fields.JSONField(default=list)
+    popular = fields.BooleanField(default=False)
+    cta = fields.CharField(max_length=100, default="Get Started")
+    highlight = fields.BooleanField(default=False)
+    savings = fields.IntField(default=0)
+    is_active = fields.BooleanField(default=True)
+    billing_period = fields.CharField(max_length=20, null=True)
+
+    class Meta:
+        table = "plans"
+
+    def __str__(self) -> str:
+        if self.credits > 0:
+            return f"{self.name} ({self.credits} credits)"
+        return f"{self.name}"

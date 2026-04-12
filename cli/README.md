@@ -63,7 +63,7 @@ You'll be prompted to choose:
 - Rate limiting with SlowAPI
 - Redis caching
 - Comprehensive test suite (pytest)
-- Alembic database migrations
+- Tortoise CLI migrations
 
 ### Frontend (Next.js 15)
 - Next.js 15 with React 19

@@ -9,7 +9,7 @@ from app.billing.enums import PaymentMethod, PaymentProvider, PaymentStatus
 class Payment(BaseModel):
     """Payment/transaction record supporting multiple providers."""
 
-    user = fields.ForeignKeyField("models.User", related_name="payments")
+    user = fields.ForeignKeyField("users.User", related_name="payments")
 
     # Purchase details
     plan_id = fields.CharField(max_length=50)

@@ -15,7 +15,7 @@ class Payment(BaseModel):
     """Payment/transaction record."""
 
     user: fields.ForeignKeyRelation["User"] = fields.ForeignKeyField(
-        "models.User", related_name="payments", on_delete=fields.CASCADE
+        "users.User", related_name="payments", on_delete=fields.CASCADE
     )
 
     # Purchase details
