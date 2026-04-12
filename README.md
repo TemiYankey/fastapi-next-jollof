@@ -1,220 +1,181 @@
-# FastAPI Next Jollof 🍛
+# create-jollof-app 🍛
 
-A production-ready, battle-tested boilerplate for building full-stack applications with **FastAPI** (backend) and **Next.js** (frontend), with **Supabase** authentication that works without hydration issues.
+A CLI to scaffold production-ready **FastAPI + Next.js** applications with authentication, payments, and email built-in.
 
-## Features
-
-### Backend (FastAPI)
-- **Supabase JWT Authentication** - JWKS-based token validation with Redis caching
-- **Tortoise ORM** - Async PostgreSQL with migrations (Aerich)
-- **Redis Integration** - Session caching, rate limiting, JWKS caching
-- **Rate Limiting** - SlowAPI with configurable limits per endpoint type
-- **Production Logging** - Rotating file logs per component
-- **Sentry Integration** - Error tracking (production only)
-
-### Frontend (Next.js 14)
-- **SSR-Safe Auth** - No hydration issues with Supabase
-- **Recovery Session Detection** - Proper password reset flow
-- **Protected Routes** - Easy-to-use route protection
-- **Zustand State** - Global user state management
-- **React Query** - Server state with smart caching
-- **Tailwind CSS** - Dark mode support with CSS variables
-- **Sonner Toasts** - Beautiful notifications
-
-### Auth Features
-- Email/Password login
-- Google OAuth
-- Email confirmation
-- Password reset
-- Session management
-- Auto-logout on token expiration
+```
+       ██╗ ██████╗ ██╗     ██╗      ██████╗ ███████╗
+       ██║██╔═══██╗██║     ██║     ██╔═══██╗██╔════╝
+       ██║██║   ██║██║     ██║     ██║   ██║█████╗
+  ██   ██║██║   ██║██║     ██║     ██║   ██║██╔══╝
+  ╚█████╔╝╚██████╔╝███████╗███████╗╚██████╔╝██║
+   ╚════╝  ╚═════╝ ╚══════╝╚══════╝ ╚═════╝ ╚═╝
+```
 
 ## Quick Start
 
-### Prerequisites
-- Node.js 18+
-- Python 3.11+
-- PostgreSQL
-- Redis
-- Supabase project
-
-### 1. Clone & Setup
-
 ```bash
-cd fastapi-next-jollof
+npx create-jollof-app
 ```
 
-### 2. Backend Setup
+Follow the interactive prompts to configure your app (name, theme, payment provider, etc.)
+
+**Or use CLI flags:**
+
+```bash
+npx create-jollof-app my-app --theme emerald --payment nomba --email resend
+```
+
+## What You Get
+
+### Backend (FastAPI)
+- **Supabase Auth** - JWT validation with JWKS caching
+- **Tortoise ORM** - Async PostgreSQL with built-in migrations
+- **Payment Processing** - Nomba (tested), Stripe, Paystack
+- **Email Service** - Resend or Brevo with templating
+- **Rate Limiting** - SlowAPI with Redis
+- **Redis Caching** - Sessions, JWKS, rate limits
+- **Production Logging** - Rotating file logs
+- **Test Suite** - pytest with async support
+
+### Frontend (Next.js 15)
+- **SSR-Safe Auth** - No hydration issues
+- **React 19** - Latest features
+- **TanStack Query** - Smart data fetching
+- **Zustand** - Lightweight state management
+- **Tailwind CSS** - Customizable themes + dark mode
+- **TypeScript** - Full type safety
+
+### Features
+- Email/password + Google OAuth
+- Protected routes
+- User profiles
+- Credits-based billing
+- Payment history
+- Docker setup (optional)
+
+## CLI Options
+
+| Option | Description |
+|--------|-------------|
+| `--type <type>` | Project type: fullstack, backend, frontend |
+| `-t, --theme <theme>` | Color: indigo, violet, blue, emerald, rose, amber, cyan, orange |
+| `-p, --payment <provider>` | Payment: nomba, stripe, paystack |
+| `-e, --email <provider>` | Email: resend, brevo, none |
+| `--frontend-port <port>` | Frontend port (default: 3000) |
+| `--backend-port <port>` | Backend port (default: 8000) |
+| `--no-git` | Skip git initialization |
+| `--no-install` | Skip dependency installation |
+
+## After Scaffolding
+
+### 1. Set Up Environment Variables
+
+```bash
+cp frontend/.env.example frontend/.env.local
+cp backend/.env.example backend/.env
+```
+
+Edit both files with your Supabase, payment, and email credentials.
+
+### 2. Set Up Supabase
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Copy your project URL, anon key, service role key, and JWT secret
+3. Enable Email Auth in Authentication > Providers
+4. (Optional) Enable Google OAuth
+
+### 3. Start Development
+
+**Option A: Docker (recommended)**
+```bash
+docker compose up -d
+```
+
+**Option B: Manual**
+```bash
+# Terminal 1 - Backend
+cd backend
+make install  # Creates venv and installs deps
+make run      # Starts server
+
+# Terminal 2 - Frontend
+cd frontend
+make install  # If you skipped install during scaffolding
+make dev      # Starts server
+```
+
+### 4. Initialize Database
 
 ```bash
 cd backend
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # or `venv\Scripts\activate` on Windows
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy environment file
-cp .env.example .env
-# Edit .env with your values
-
-# Initialize database migrations
-aerich init -t app.core.database.TORTOISE_ORM
-aerich init-db
-
-# Run the server
-uvicorn app.main:app --reload
+source venv/bin/activate
+tortoise init
+tortoise makemigrations
+tortoise migrate
 ```
 
-### 3. Frontend Setup
+Or use the Makefile:
+```bash
+make db-init     # Initialize
+make migration   # Create migration
+make migrate     # Apply migrations
+```
+
+## Running Tests
 
 ```bash
-cd frontend
+# Frontend
+cd frontend && npm test
 
-# Install dependencies
-npm install
-
-# Copy environment file
-cp .env.example .env.local
-# Edit .env.local with your values
-
-# Run development server
-npm run dev
+# Backend
+cd backend && make test
 ```
 
-### 4. Supabase Setup
+## Color Themes
 
-1. Create a project at [supabase.com](https://supabase.com)
-2. Go to Settings > API and copy:
-   - Project URL → `SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_URL`
-   - `anon` public key → `SUPABASE_PUBLIC_KEY` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-   - `service_role` secret → `SUPABASE_SECRET_KEY`
-   - JWT Secret → `SUPABASE_JWT_SECRET`
+| Theme | Best For |
+|-------|----------|
+| Indigo | B2B, Finance, Professional |
+| Violet | Creative tools, Design |
+| Blue | General purpose |
+| Emerald | Health, Finance, Growth |
+| Rose | Consumer apps, Social |
+| Amber | Food, Hospitality |
+| Cyan | Tech, AI, Startups |
+| Orange | Food, Energy, Vibrant |
 
-3. Enable Email Auth in Authentication > Providers
-4. (Optional) Enable Google OAuth in Authentication > Providers
+## Requirements
+
+- Node.js 18+
+- Python 3.11+
+- PostgreSQL (or use Docker)
+- Redis (or use Docker)
+- Supabase project
 
 ## Project Structure
 
 ```
-fastapi-next-jollof/
+my-app/
 ├── backend/
 │   ├── app/
-│   │   ├── base/           # Base models, schemas, utilities
-│   │   ├── core/           # Config, database, redis, logging
-│   │   ├── users/          # Auth routes, models, JWT decoder
-│   │   └── main.py         # FastAPI app entry
-│   ├── requirements.txt
-│   └── .env.example
-│
+│   │   ├── base/        # Base models, utilities
+│   │   ├── billing/     # Payments, plans, credits
+│   │   ├── core/        # Config, database, redis
+│   │   ├── emails/      # Email service + templates
+│   │   └── users/       # Auth, profiles
+│   ├── tests/
+│   ├── Makefile
+│   └── requirements.txt
 ├── frontend/
-│   ├── app/
-│   │   ├── auth/           # Auth pages (signin, signup, etc.)
-│   │   ├── (dashboard)/    # Protected routes
-│   │   └── providers.tsx   # App providers
-│   ├── components/
-│   │   ├── auth/           # Auth components
-│   │   └── ui/             # UI components
-│   ├── contexts/           # AuthContext
-│   ├── stores/             # Zustand stores
-│   ├── utils/api/          # API client
-│   └── .env.example
-│
-└── README.md
+│   ├── app/             # Next.js pages
+│   ├── components/      # React components
+│   ├── contexts/        # Auth context
+│   ├── stores/          # Zustand stores
+│   └── utils/api/       # API client
+├── docker-compose.yml
+└── .gitignore
 ```
-
-## Configuration
-
-### Backend Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `DATABASE_URL` | PostgreSQL connection string | Yes |
-| `SUPABASE_URL` | Supabase project URL | Yes |
-| `SUPABASE_JWT_SECRET` | Supabase JWT secret | Yes |
-| `SECRET_KEY` | App secret key | Yes |
-| `CORS_ALLOWED_ORIGINS` | Comma-separated origins | Yes |
-| `REDIS_URL` | Redis connection string | Yes |
-| `SENTRY_DSN` | Sentry DSN (production) | No |
-
-### Frontend Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `NEXT_PUBLIC_APP_NAME` | App display name | No |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Yes |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase anon key | Yes |
-| `NEXT_PUBLIC_API_URL` | Backend API URL | Yes |
-
-## Customization
-
-### App Name
-Update in both environments:
-- Backend: `APP_NAME` in `.env`
-- Frontend: `NEXT_PUBLIC_APP_NAME` in `.env.local`
-
-### Theme Colors
-Edit `frontend/app/globals.css` to customize:
-- Light/dark mode colors via CSS variables
-- Primary brand color
-
-### Adding Features
-The auth system is modular. Add new features by:
-1. Creating models in `backend/app/<feature>/models.py`
-2. Adding routes in `backend/app/<feature>/routes.py`
-3. Including router in `backend/app/main.py`
-4. Creating API calls in `frontend/utils/api/<feature>.ts`
-
-## Auth Flow
-
-### Sign In
-1. User submits email/password
-2. Supabase validates credentials
-3. Frontend calls `/api/auth/me` with token
-4. Backend creates/fetches user from DB
-5. User data stored in Zustand
-
-### Protected Routes
-```tsx
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-
-export default function MyPage() {
-  return (
-    <ProtectedRoute>
-      <YourProtectedContent />
-    </ProtectedRoute>
-  );
-}
-```
-
-### Using Auth
-```tsx
-import { useAuth } from "@/contexts/AuthContext";
-import { useUserStore } from "@/stores/userStore";
-
-function Component() {
-  const { isAuthenticated, logout } = useAuth();
-  const { user } = useUserStore();
-
-  return <div>Hello, {user?.fullName}</div>;
-}
-```
-
-## Production Deployment
-
-### Backend
-1. Set `ENVIRONMENT=production`
-2. Configure Sentry DSN
-3. Use production database
-4. Deploy with Gunicorn + Uvicorn workers
-
-### Frontend
-1. Build with `npm run build`
-2. Deploy to Vercel/similar
-3. Set production environment variables
 
 ## License
 
-MIT License - Use this boilerplate for any project!
+MIT

@@ -57,14 +57,14 @@ clean:
 	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
 
 db-init:
-	$(PYTHON) -m tortoise -c app.core.database.TORTOISE_ORM init
+	$(PYTHON) -m tortoise init
 
 migrate:
-	$(PYTHON) -m tortoise -c app.core.database.TORTOISE_ORM migrate
+	$(PYTHON) -m tortoise migrate
 
 migration:
 	@read -p "Migration message: " msg; \
-	$(PYTHON) -m tortoise -c app.core.database.TORTOISE_ORM makemigrations --name "$$msg"
+	$(PYTHON) -m tortoise makemigrations --name "$$msg"
 
 shell:
-	$(PYTHON) -m tortoise -c app.core.database.TORTOISE_ORM shell
+	$(PYTHON) -m tortoise shell
