@@ -1,0 +1,28 @@
+# Source (dist is published instead)
+src/
+
+# Tests
+*.test.ts
+vitest.config.ts
+coverage/
+test-*/
+test-output/
+
+# Development
+scripts/
+tsconfig.json
+.gitignore
+
+# Template artifacts (should not exist, but just in case)
+template/**/node_modules/
+template/**/.venv/
+template/**/venv/
+template/**/__pycache__/
+template/**/.pytest_cache/
+template/**/*.pyc
+template/**/.env
+template/**/.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
