@@ -17,6 +17,7 @@ from app.emails.service import (
 from tests.unit.emails.factories import (
     EmailRequestFactory,
     SettingsFactory,
+    TemplatedEmailRequestFactory,
 )
 
 
@@ -57,74 +58,9 @@ def create_failure_response(
 class TestEmailService:
     """Tests for EmailService class."""
 
-    def test_get_default_provider(self):
-        """Test default provider."""
-        provider = EmailService.get_default_provider()
-{{#if isResend}}
-        assert provider == EmailProvider.RESEND
-{{else}}
-        assert provider == EmailProvider.BREVO
-{{/if}}
-
-    def test_get_available_providers(self):
-        """Test provider available when configured."""
-        with SettingsFactory.mock():
-            providers = EmailService.get_available_providers()
-{{#if isResend}}
-            assert EmailProvider.RESEND in providers
-{{else}}
-            assert EmailProvider.BREVO in providers
-{{/if}}
-
-    def test_get_available_providers_none(self):
-        """Test no providers configured."""
-{{#if isResend}}
-        with SettingsFactory.mock(resend_api_key=""):
-{{else}}
-        with SettingsFactory.mock(brevo_api_key=""):
-{{/if}}
-            providers = EmailService.get_available_providers()
-            assert len(providers) == 0
-
     @pytest.mark.asyncio
-    async def test_send_no_providers_configured(self):
-        """Test send fails gracefully when no providers configured."""
-        email_request = EmailRequestFactory.create()
-
-{{#if isResend}}
-        with SettingsFactory.mock(resend_api_key=""):
-{{else}}
-        with SettingsFactory.mock(brevo_api_key=""):
-{{/if}}
-            response = await EmailService.send(email_request)
-
-            assert response.success is False
-            assert "No email providers configured" in response.error
-
-    @pytest.mark.asyncio
-    async def test_send_with_default_provider(self):
-        """Test send uses default provider."""
-        email_request = EmailRequestFactory.create()
-        mock_response = create_success_response()
-
-        with SettingsFactory.mock():
-            with patch.object(
-                EmailService, "_send_with_provider", return_value=mock_response
-            ) as mock_send:
-                response = await EmailService.send(email_request)
-
-                assert response.success is True
-                mock_send.assert_called_once()
-                call_args = mock_send.call_args
-{{#if isResend}}
-                assert call_args[0][1] == EmailProvider.RESEND
-{{else}}
-                assert call_args[0][1] == EmailProvider.BREVO
-{{/if}}
-
-    @pytest.mark.asyncio
-    async def test_send_with_provider(self):
-        """Test _send_with_provider calls correct provider."""
+    async def test_send_success(self):
+        """Test send calls provider successfully."""
         email_request = EmailRequestFactory.create()
         mock_response = create_success_response()
 
@@ -133,57 +69,56 @@ class TestEmailService:
             with patch(
                 "app.emails.service.ResendProvider.send", return_value=mock_response
             ) as mock_provider:
-                response = await EmailService._send_with_provider(
-                    email_request, EmailProvider.RESEND
-                )
 {{else}}
             with patch(
                 "app.emails.service.BrevoProvider.send", return_value=mock_response
             ) as mock_provider:
-                response = await EmailService._send_with_provider(
-                    email_request, EmailProvider.BREVO
-                )
 {{/if}}
+                response = await EmailService.send(email_request)
 
                 assert response.success is True
                 mock_provider.assert_called_once_with(email_request)
 
     @pytest.mark.asyncio
-    async def test_send_no_fallback(self):
-        """Test no fallback when disabled."""
+    async def test_send_failure(self):
+        """Test send handles provider failure."""
         email_request = EmailRequestFactory.create()
-        failed_response = create_failure_response()
+        mock_response = create_failure_response()
 
-        with SettingsFactory.mock():
-            with patch.object(
-                EmailService, "_send_with_provider", return_value=failed_response
-            ) as mock_send:
-                response = await EmailService.send(email_request, fallback=False)
-
-                assert response.success is False
-                assert mock_send.call_count == 1
-
-    @pytest.mark.asyncio
-    async def test_health_check(self):
-        """Test health check for provider."""
         with SettingsFactory.mock():
 {{#if isResend}}
             with patch(
-                "app.emails.service.ResendProvider.health_check", return_value=True
-            ) as mock_health:
-                results = await EmailService.health_check()
-
-                assert results[EmailProvider.RESEND] is True
-                mock_health.assert_called_once()
+                "app.emails.service.ResendProvider.send", return_value=mock_response
+            ):
 {{else}}
             with patch(
-                "app.emails.service.BrevoProvider.health_check", return_value=True
-            ) as mock_health:
-                results = await EmailService.health_check()
-
-                assert results[EmailProvider.BREVO] is True
-                mock_health.assert_called_once()
+                "app.emails.service.BrevoProvider.send", return_value=mock_response
+            ):
 {{/if}}
+                response = await EmailService.send(email_request)
+
+                assert response.success is False
+                assert response.error == "Test error message"
+
+    @pytest.mark.asyncio
+    async def test_send_templated(self):
+        """Test send_templated generates template and sends."""
+        request = TemplatedEmailRequestFactory.create_welcome(name="John")
+        mock_response = create_success_response()
+
+        with SettingsFactory.mock():
+            with patch.object(EmailService, "send", return_value=mock_response) as mock_send:
+                response = await EmailService.send_templated(request)
+
+                assert response.success is True
+                mock_send.assert_called_once()
+
+                # Verify EmailRequest was created from template
+                call_args = mock_send.call_args
+                email_request = call_args[0][0]
+                assert email_request.to == "recipient@example.com"
+                assert "Welcome" in email_request.subject
+                assert "John" in email_request.html_content
 
 
 class TestConvenienceFunctions:

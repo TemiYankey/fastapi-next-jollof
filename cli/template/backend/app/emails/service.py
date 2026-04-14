@@ -1,4 +1,4 @@
-"""Email service with multi-provider support."""
+"""Email service."""
 
 from app.core.config import settings
 from app.core.logger import get_email_logger
@@ -13,10 +13,10 @@ logger = get_email_logger()
 
 class EmailService:
     """
-    Email service supporting multiple providers.
+    Email service.
 
     Usage:
-        # Send with default provider (from settings)
+        # Send with default provider (from settings.default_email_provider)
         await EmailService.send(EmailRequest(...))
 
         # Send with specific provider
@@ -31,88 +31,32 @@ class EmailService:
     """
 
     @staticmethod
-    def get_default_provider() -> EmailProvider:
-        """Get default provider from settings."""
-        try:
-            return EmailProvider(settings.default_email_provider)
-        except ValueError:
-            return EmailProvider.RESEND
-
-    @staticmethod
-    def get_available_providers() -> list[EmailProvider]:
-        """Get list of configured providers."""
-        providers = []
-        if settings.resend_api_key:
-            providers.append(EmailProvider.RESEND)
-        if settings.brevo_api_key:
-            providers.append(EmailProvider.BREVO)
-        return providers
-
-    @staticmethod
     async def send(
         request: EmailRequest,
         provider: EmailProvider | None = None,
-        fallback: bool = True,
     ) -> EmailResponse:
         """
         Send an email using the specified or default provider.
 
         Args:
             request: Email request with to, subject, content
-            provider: Specific provider to use (optional)
-            fallback: If True, try other providers if the first fails
+            provider: Specific provider to use (defaults to settings.default_email_provider)
 
         Returns:
             EmailResponse with success status and message_id
         """
-        available = EmailService.get_available_providers()
+        target = provider or EmailProvider(settings.default_email_provider)
 
-        if not available:
-            logger.error("No email providers configured")
-            return EmailResponse(
-                success=False,
-                provider=EmailProvider.RESEND,
-                error="No email providers configured",
-            )
-
-        # Determine which provider to use
-        target = provider or EmailService.get_default_provider()
-
-        # If target not available, use first available
-        if target not in available:
-            target = available[0]
-            logger.warning(f"Requested provider not available, using {target}")
-
-        # Send with target provider
-        response = await EmailService._send_with_provider(request, target)
-
-        # Fallback to other providers if failed
-        if fallback and not response.success:
-            for fallback_provider in available:
-                if fallback_provider != target:
-                    logger.info(f"Falling back to {fallback_provider}")
-                    response = await EmailService._send_with_provider(
-                        request, fallback_provider
-                    )
-                    if response.success:
-                        break
-
-        return response
-
-    @staticmethod
-    async def _send_with_provider(
-        request: EmailRequest, provider: EmailProvider
-    ) -> EmailResponse:
-        """Send email with specific provider."""
-        if provider == EmailProvider.RESEND:
+        if target == EmailProvider.RESEND:
             return await ResendProvider.send(request)
-        elif provider == EmailProvider.BREVO:
+        elif target == EmailProvider.BREVO:
             return await BrevoProvider.send(request)
         else:
+            logger.error(f"Unknown email provider: {target}")
             return EmailResponse(
                 success=False,
-                provider=provider,
-                error=f"Unknown provider: {provider}",
+                provider=target,
+                error=f"Unknown provider: {target}",
             )
 
     @staticmethod
@@ -146,16 +90,6 @@ class EmailService:
 
         return await EmailService.send(email_request, provider=provider)
 
-    @staticmethod
-    async def health_check() -> dict[EmailProvider, bool]:
-        """Check health of all configured providers."""
-        results = {}
-        if settings.resend_api_key:
-            results[EmailProvider.RESEND] = await ResendProvider.health_check()
-        if settings.brevo_api_key:
-            results[EmailProvider.BREVO] = await BrevoProvider.health_check()
-        return results
-
 
 # Convenience functions
 async def send_email(
@@ -165,7 +99,7 @@ async def send_email(
     text_content: str | None = None,
     provider: EmailProvider | None = None,
 ) -> EmailResponse:
-    """Send an email (convenience function)."""
+    """Send an email."""
     request = EmailRequest(
         to=to,
         subject=subject,

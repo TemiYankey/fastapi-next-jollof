@@ -21,7 +21,7 @@ class Settings(BaseAppSettings):
     primary_color: str = "{{primaryColorHex}}"
 
     # Database
-    database_url: str = "postgresql+asyncpg://user:password@localhost:5432/{{dbName}}"
+    database_url: str = "postgres://postgres:postgres@localhost:5432/postgres"
 
     # Supabase Auth
     supabase_url: str = ""

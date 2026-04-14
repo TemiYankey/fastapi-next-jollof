@@ -24,7 +24,7 @@ class Settings(BaseAppSettings):
     secondary_color: str = "#ec4899"  # Pink
 
     # Database (Tortoise ORM format)
-    database_url: str = "postgres://user:password@localhost:5432/jollofdb"
+    database_url: str = "postgres://user:password@localhost:5432/postgres"
 
     # Supabase Auth
     supabase_url: str = ""
@@ -83,7 +83,9 @@ class Settings(BaseAppSettings):
 
     model_config = SettingsConfigDict(
         env_file=[
-            os.environ.get("APP_ENV_FILE", ".env"),  # Override: APP_ENV_FILE=.env.test for tests
+            os.environ.get(
+                "APP_ENV_FILE", ".env"
+            ),  # Override: APP_ENV_FILE=.env.test for tests
             ".env.local",  # Local overrides (gitignored)
             ".env",  # Default
         ],
