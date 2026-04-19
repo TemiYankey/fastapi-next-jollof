@@ -20,6 +20,8 @@ vi.mock("@/lib/supabase", () => ({
       signInWithOAuth: vi.fn(),
       resetPasswordForEmail: vi.fn(),
       signOut: vi.fn(),
+      verifyOtp: vi.fn(),
+      resend: vi.fn(),
     },
   },
 }));
@@ -189,10 +191,14 @@ describe("AuthContext", () => {
   });
 
   describe("signup", () => {
-    it("successfully signs up user", async () => {
+    it("successfully signs up user and returns userExists false", async () => {
       vi.mocked(supabase.auth.signUp).mockResolvedValue({
         data: {
-          user: { id: "new-user", email: "new@example.com" } as never,
+          user: {
+            id: "new-user",
+            email: "new@example.com",
+            identities: [{ id: "identity-1" }],
+          } as never,
           session: null,
         },
         error: null,
@@ -204,8 +210,9 @@ describe("AuthContext", () => {
         expect(result.current.isLoading).toBe(false);
       });
 
+      let signupResult: { userExists: boolean } | undefined;
       await act(async () => {
-        await result.current.signup({
+        signupResult = await result.current.signup({
           firstName: "New",
           lastName: "User",
           email: "new@example.com",
@@ -213,6 +220,7 @@ describe("AuthContext", () => {
         });
       });
 
+      expect(signupResult?.userExists).toBe(false);
       expect(supabase.auth.signUp).toHaveBeenCalledWith({
         email: "new@example.com",
         password: "password123",
@@ -224,6 +232,38 @@ describe("AuthContext", () => {
           }),
         }),
       });
+    });
+
+    it("returns userExists true when user already exists", async () => {
+      vi.mocked(supabase.auth.signUp).mockResolvedValue({
+        data: {
+          user: {
+            id: "existing-user",
+            email: "existing@example.com",
+            identities: [], // Empty identities means user exists
+          } as never,
+          session: null,
+        },
+        error: null,
+      });
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      let signupResult: { userExists: boolean } | undefined;
+      await act(async () => {
+        signupResult = await result.current.signup({
+          firstName: "Test",
+          lastName: "User",
+          email: "existing@example.com",
+          password: "password123",
+        });
+      });
+
+      expect(signupResult?.userExists).toBe(true);
     });
 
     it("throws error on signup failure", async () => {
@@ -246,6 +286,92 @@ describe("AuthContext", () => {
           password: "password",
         })
       ).rejects.toThrow("Email already registered");
+    });
+  });
+
+  describe("verifyOtp", () => {
+    it("successfully verifies OTP code", async () => {
+      vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
+        data: {
+          user: { id: "user-123", email: "test@example.com" } as never,
+          session: { access_token: "token" } as never,
+        },
+        error: null,
+      });
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.verifyOtp("test@example.com", "123456");
+      });
+
+      expect(supabase.auth.verifyOtp).toHaveBeenCalledWith({
+        email: "test@example.com",
+        token: "123456",
+        type: "signup",
+      });
+    });
+
+    it("throws error on invalid OTP", async () => {
+      vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
+        data: { user: null, session: null },
+        error: { message: "Invalid OTP" } as never,
+      });
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      await expect(
+        result.current.verifyOtp("test@example.com", "000000")
+      ).rejects.toThrow("Invalid OTP");
+    });
+  });
+
+  describe("resendSignupCode", () => {
+    it("successfully resends signup code", async () => {
+      vi.mocked(supabase.auth.resend).mockResolvedValue({
+        data: {},
+        error: null,
+      });
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.resendSignupCode("test@example.com");
+      });
+
+      expect(supabase.auth.resend).toHaveBeenCalledWith({
+        type: "signup",
+        email: "test@example.com",
+      });
+    });
+
+    it("throws error on resend failure", async () => {
+      vi.mocked(supabase.auth.resend).mockResolvedValue({
+        data: {},
+        error: { message: "Rate limit exceeded" } as never,
+      });
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      await expect(
+        result.current.resendSignupCode("test@example.com")
+      ).rejects.toThrow("Rate limit exceeded");
     });
   });
 

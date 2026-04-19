@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: vi.fn(() => ({
     signup: vi.fn(),
+    verifyOtp: vi.fn(),
+    resendSignupCode: vi.fn(),
   })),
 }));
 
@@ -20,13 +22,19 @@ import { useAuth } from "@/contexts/AuthContext";
 
 describe("SignUpPage", () => {
   const mockSignup = vi.fn();
+  const mockVerifyOtp = vi.fn();
+  const mockResendSignupCode = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSignup.mockResolvedValue(undefined);
+    mockSignup.mockResolvedValue({ userExists: false });
+    mockVerifyOtp.mockResolvedValue(undefined);
+    mockResendSignupCode.mockResolvedValue(undefined);
 
     vi.mocked(useAuth).mockReturnValue({
       signup: mockSignup,
+      verifyOtp: mockVerifyOtp,
+      resendSignupCode: mockResendSignupCode,
       login: vi.fn(),
       isAuthenticated: false,
       isLoading: false,
@@ -252,9 +260,9 @@ describe("SignUpPage", () => {
     });
   });
 
-  describe("success state", () => {
-    it("shows success message after signup", async () => {
-      mockSignup.mockResolvedValue(undefined);
+  describe("OTP verification", () => {
+    it("shows OTP verification screen after signup", async () => {
+      mockSignup.mockResolvedValue({ userExists: false });
 
       render(<SignUpPage />);
 
@@ -275,11 +283,12 @@ describe("SignUpPage", () => {
 
       await waitFor(() => {
         expect(screen.getByText(/check your email/i)).toBeInTheDocument();
+        expect(screen.getByText(/6-digit code/i)).toBeInTheDocument();
       });
     });
 
-    it("shows email address in success message", async () => {
-      mockSignup.mockResolvedValue(undefined);
+    it("shows email address in OTP verification screen", async () => {
+      mockSignup.mockResolvedValue({ userExists: false });
 
       render(<SignUpPage />);
 
@@ -303,8 +312,8 @@ describe("SignUpPage", () => {
       });
     });
 
-    it("shows link to sign in after success", async () => {
-      mockSignup.mockResolvedValue(undefined);
+    it("shows resend code option", async () => {
+      mockSignup.mockResolvedValue({ userExists: false });
 
       render(<SignUpPage />);
 
@@ -324,7 +333,57 @@ describe("SignUpPage", () => {
       fireEvent.click(screen.getByRole("button", { name: /create account/i }));
 
       await waitFor(() => {
-        expect(screen.getByText(/back to sign in/i)).toBeInTheDocument();
+        expect(screen.getByText(/resend/i)).toBeInTheDocument();
+      });
+    });
+
+    it("shows change email option", async () => {
+      mockSignup.mockResolvedValue({ userExists: false });
+
+      render(<SignUpPage />);
+
+      fireEvent.change(screen.getByLabelText(/first name/i), {
+        target: { value: "John" },
+      });
+      fireEvent.change(screen.getByLabelText(/last name/i), {
+        target: { value: "Doe" },
+      });
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "john@example.com" },
+      });
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: "Password123" },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/change email/i)).toBeInTheDocument();
+      });
+    });
+
+    it("shows error when user already exists", async () => {
+      mockSignup.mockResolvedValue({ userExists: true });
+
+      render(<SignUpPage />);
+
+      fireEvent.change(screen.getByLabelText(/first name/i), {
+        target: { value: "John" },
+      });
+      fireEvent.change(screen.getByLabelText(/last name/i), {
+        target: { value: "Doe" },
+      });
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: "existing@example.com" },
+      });
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: "Password123" },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/already registered/i)).toBeInTheDocument();
       });
     });
   });

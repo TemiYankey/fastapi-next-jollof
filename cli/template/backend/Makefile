@@ -30,6 +30,7 @@ install:
 	python3 -m venv venv
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
+	@echo "Done! Run 'source venv/bin/activate' to activate the virtual environment."
 
 run:
 	$(PYTHON) -m uvicorn app.main:app --host 0.0.0.0 --port $(PORT)

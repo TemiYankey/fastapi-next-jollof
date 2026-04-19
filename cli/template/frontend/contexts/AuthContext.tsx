@@ -21,7 +21,9 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<{ error: AuthError | null }>;
-  signup: (data: SignupData) => Promise<void>;
+  signup: (data: SignupData) => Promise<{ userExists: boolean }>;
+  verifyOtp: (email: string, token: string) => Promise<void>;
+  resendSignupCode: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
 }
@@ -180,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signup = async (data: SignupData) => {
-    const { error } = await supabase.auth.signUp({
+    const { data: signupData, error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
       options: {
@@ -191,8 +193,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           signup_source: "web",
           signup_timestamp: new Date().toISOString(),
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // Check if user already exists (identities will be empty)
+    const userExists =
+      signupData.user &&
+      signupData.user.identities &&
+      signupData.user.identities.length === 0;
+
+    return { userExists: !!userExists };
+  };
+
+  const verifyOtp = async (email: string, token: string) => {
+    // Try signup type first, then email type as fallback
+    let result = await supabase.auth.verifyOtp({
+      email,
+      token: token.trim(),
+      type: "signup",
+    });
+
+    if (result.error) {
+      result = await supabase.auth.verifyOtp({
+        email,
+        token: token.trim(),
+        type: "email",
+      });
+    }
+
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
+  };
+
+  const resendSignupCode = async (email: string) => {
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
     });
 
     if (error) {
@@ -240,6 +281,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     loginWithGoogle,
     signup,
+    verifyOtp,
+    resendSignupCode,
     logout,
     resetPassword,
   };
