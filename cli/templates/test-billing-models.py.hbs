@@ -1,7 +1,6 @@
 """Tests for billing models."""
 
 from datetime import datetime, timezone
-from decimal import Decimal
 from uuid import uuid4
 
 import pytest
@@ -61,8 +60,6 @@ class TestPlanModel:
 
     def test_plan_default_values(self):
         """Test plan default values when explicitly provided."""
-        # Note: Tortoise ORM defaults only apply at DB insert time
-        # For unit tests, we test with explicit default values
         plan = Plan(
             id=uuid4(),
             name="Test",
@@ -82,20 +79,43 @@ class TestPlanModel:
         assert plan.savings == 0
         assert plan.cta == "Get Started"
 
+    def test_plan_str_representation(self):
+        """Test plan string representation."""
+        plan = Plan(
+            id=uuid4(),
+            name="Test Package",
+            price=999,
+            credits=100,
+        )
+
+        result = str(plan)
+        assert "Test Package" in result
+
+    def test_plan_table_name(self):
+        """Test Plan model has correct table name."""
+        assert Plan._meta.db_table == "plans"
+
+    def test_plan_has_required_fields(self):
+        """Test Plan model has required fields."""
+        field_names = [f.model_field_name for f in Plan._meta.fields_map.values()]
+
+        assert "id" in field_names
+        assert "name" in field_names
+        assert "price" in field_names
+        assert "is_active" in field_names
+
 
 class TestPaymentModel:
     """Tests for Payment model."""
 
     def test_payment_creation(self):
         """Test creating a basic payment."""
-        user_id = uuid4()
         payment = Payment(
             id=uuid4(),
-            user_id=user_id,
             plan_id="pkg-123",
             plan_name="Basic Plan",
             credits_purchased=100,
-            amount=Decimal("9.99"),
+            amount=999,
             currency="NGN",
             reference="REF-123",
             status=PaymentStatus.PENDING,
@@ -111,10 +131,9 @@ class TestPaymentModel:
 {{/if}}
         )
 
-        assert payment.user_id == user_id
         assert payment.plan_name == "Basic Plan"
         assert payment.credits_purchased == 100
-        assert payment.amount == Decimal("9.99")
+        assert payment.amount == 999
         assert payment.status == PaymentStatus.PENDING
 
     def test_payment_with_all_fields(self):
@@ -122,11 +141,10 @@ class TestPaymentModel:
         now = datetime.now(timezone.utc)
         payment = Payment(
             id=uuid4(),
-            user_id=uuid4(),
             plan_id="pkg-456",
             plan_name="Premium",
             credits_purchased=500,
-            amount=Decimal("29.99"),
+            amount=2999,
             currency="NGN",
             reference="REF-456",
             provider_order_reference="ORD-456",
@@ -157,11 +175,10 @@ class TestPaymentModel:
         """Test payment status can be updated."""
         payment = Payment(
             id=uuid4(),
-            user_id=uuid4(),
             plan_id="pkg-123",
             plan_name="Test",
             credits_purchased=10,
-            amount=Decimal("1.00"),
+            amount=100,
             currency="NGN",
             reference="REF-789",
             status=PaymentStatus.PENDING,
@@ -182,6 +199,37 @@ class TestPaymentModel:
         payment.status = PaymentStatus.SUCCESS
         assert payment.status == PaymentStatus.SUCCESS
 
-        # Test can also transition to failed
         payment.status = PaymentStatus.FAILED
         assert payment.status == PaymentStatus.FAILED
+
+    def test_payment_str_representation(self):
+        """Test payment string representation."""
+        payment = Payment(
+            id=uuid4(),
+            plan_id="pkg-123",
+            plan_name="Test Package",
+            credits_purchased=100,
+            amount=1000,
+            reference="REF-123",
+            status=PaymentStatus.PENDING,
+        )
+
+        result = str(payment)
+
+        assert "REF-123" in result
+
+    def test_payment_table_name(self):
+        """Test Payment model has correct table name."""
+        assert Payment._meta.db_table == "payments"
+
+    def test_payment_has_required_fields(self):
+        """Test Payment model has required fields."""
+        field_names = [f.model_field_name for f in Payment._meta.fields_map.values()]
+
+        assert "id" in field_names
+        assert "plan_id" in field_names
+        assert "plan_name" in field_names
+        assert "amount" in field_names
+        assert "currency" in field_names
+        assert "status" in field_names
+        assert "reference" in field_names

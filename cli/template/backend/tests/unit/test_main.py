@@ -13,16 +13,6 @@ from app.main import app, lifespan
 class TestHealthEndpoints:
     """Tests for health check endpoints."""
 
-    def test_health_check(self):
-        """Test /health endpoint."""
-        client = TestClient(app, raise_server_exceptions=False)
-        response = client.get("/health")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "healthy"
-        assert "app" in data
-
     def test_api_health_check(self):
         """Test /api/health endpoint."""
         client = TestClient(app, raise_server_exceptions=False)
@@ -31,6 +21,7 @@ class TestHealthEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
+        assert "app" in data
 
 
 class TestAppConfiguration:
@@ -49,8 +40,7 @@ class TestAppConfiguration:
         # Check routes are registered
         routes = [route.path for route in app.routes]
 
-        # Health endpoints
-        assert "/health" in routes
+        # Health endpoint
         assert "/api/health" in routes
 
     def test_cors_middleware_configured(self):

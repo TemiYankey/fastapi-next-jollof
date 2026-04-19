@@ -77,14 +77,12 @@ class TestEmailService:
 
     @pytest.mark.asyncio
     async def test_send_with_unknown_provider(self):
-        """Test send returns error for unknown provider."""
+        """Test send raises error for unknown provider."""
         email_request = EmailRequestFactory.create()
 
         with SettingsFactory.mock(default_email_provider="unknown"):
-            response = await EmailService.send(email_request)
-
-            assert response.success is False
-            assert "Unknown provider" in response.error
+            with pytest.raises(ValueError, match="is not a valid EmailProvider"):
+                await EmailService.send(email_request)
 
     @pytest.mark.asyncio
     async def test_send_templated(self):

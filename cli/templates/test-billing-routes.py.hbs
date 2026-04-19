@@ -3,7 +3,6 @@
 import hashlib
 import hmac
 from datetime import datetime, timezone
-from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -21,6 +20,17 @@ from app.billing.routes import (
 )
 
 
+def create_async_queryset_mock(return_value):
+    """Create a mock that works as an async queryset.
+
+    Handles both `await queryset` and `await queryset.all()` patterns.
+    """
+    mock = MagicMock()
+    mock.__await__ = lambda self: iter([return_value])
+    mock.all = AsyncMock(return_value=return_value)
+    return mock
+
+
 class TestVerifyWebhookSignature:
     """Tests for verify_webhook_signature function."""
 
@@ -29,7 +39,6 @@ class TestVerifyWebhookSignature:
         payload = b'{"orderReference": "123"}'
         secret = "test-secret"
 
-        # Generate valid signature
         expected_signature = hmac.new(
             secret.encode("utf-8"), payload, hashlib.sha512
         ).hexdigest()
@@ -75,7 +84,6 @@ class TestVerifyWebhookSignature:
             secret.encode("utf-8"), payload, hashlib.sha512
         ).hexdigest()
 
-        # Test uppercase
         result = verify_webhook_signature(payload, expected_signature.upper(), secret)
 
         assert result is True
@@ -261,7 +269,6 @@ class TestGetPlans:
     @pytest.mark.asyncio
     async def test_returns_active_plans(self):
         """Test returns only active pricing plans."""
-        # Create mock Plan objects
         pkg1 = MagicMock()
         pkg1.id = uuid4()
         pkg1.name = "Basic"
@@ -280,13 +287,15 @@ class TestGetPlans:
 
         with patch("app.billing.routes.Plan") as mock_plan_model:
             mock_filter = MagicMock()
-            mock_order_by = mock_filter.order_by.return_value
-            mock_order_by.__iter__ = lambda self: iter(mock_plans)
+            mock_order_by = create_async_queryset_mock(mock_plans)
+            mock_filter.order_by.return_value = mock_order_by
             mock_plan_model.filter.return_value = mock_filter
 
             result = await get_plans(request=mock_request)
 
-            assert len(list(result)) == 2
+            assert len(result) == 2
+            assert result[0].name == "Basic"
+            assert result[1].name == "Pro"
 
 
 class TestGetCreditsOverview:
@@ -295,14 +304,12 @@ class TestGetCreditsOverview:
     @pytest.mark.asyncio
     async def test_returns_credits_overview(self):
         """Test returns user credits overview."""
-
         mock_user = MagicMock()
         mock_user.id = uuid4()
         mock_user.credits = 250
 
         now = datetime.now(timezone.utc)
 
-        # Create mock Payment objects
         payment1 = MagicMock()
         payment1.id = uuid4()
         payment1.plan_name = "Basic"
@@ -348,15 +355,11 @@ class TestGetCreditsOverview:
         mock_request = MagicMock()
 
         with patch("app.billing.routes.Payment") as mock_payment_model:
-            # First call: successful purchases
-            mock_filter1 = MagicMock()
-            mock_filter1.all = AsyncMock(return_value=mock_purchases)
+            mock_filter1 = create_async_queryset_mock(mock_purchases)
 
-            # Second call: recent history with ordering and limit
             mock_filter2 = MagicMock()
             mock_order_by = MagicMock()
-            mock_limit = MagicMock()
-            mock_limit.__iter__ = lambda self: iter(mock_purchases)
+            mock_limit = create_async_queryset_mock(mock_purchases)
             mock_order_by.limit.return_value = mock_limit
             mock_filter2.order_by.return_value = mock_order_by
 

@@ -18,28 +18,31 @@ class TestTortoiseOrmConfig:
     def test_config_has_apps(self):
         """Test config has apps defined."""
         assert "apps" in TORTOISE_ORM
-        assert "models" in TORTOISE_ORM["apps"]
+        assert "users" in TORTOISE_ORM["apps"]
+        assert "billing" in TORTOISE_ORM["apps"]
 
-    def test_models_app_has_models_list(self):
-        """Test models app has models list."""
-        models_app = TORTOISE_ORM["apps"]["models"]
-        assert "models" in models_app
-        assert isinstance(models_app["models"], list)
+    def test_users_app_has_models_list(self):
+        """Test users app has models list."""
+        users_app = TORTOISE_ORM["apps"]["users"]
+        assert "models" in users_app
+        assert isinstance(users_app["models"], list)
 
     def test_models_includes_user_models(self):
         """Test models includes user models."""
-        models = TORTOISE_ORM["apps"]["models"]["models"]
+        models = TORTOISE_ORM["apps"]["users"]["models"]
         assert "app.users.models" in models
 
     def test_models_includes_billing_models(self):
         """Test models includes billing models."""
-        models = TORTOISE_ORM["apps"]["models"]["models"]
+        models = TORTOISE_ORM["apps"]["billing"]["models"]
         assert "app.billing.models" in models
 
     def test_default_connection_set(self):
         """Test default connection is set."""
-        models_app = TORTOISE_ORM["apps"]["models"]
-        assert models_app["default_connection"] == "default"
+        users_app = TORTOISE_ORM["apps"]["users"]
+        assert users_app["default_connection"] == "default"
+        billing_app = TORTOISE_ORM["apps"]["billing"]
+        assert billing_app["default_connection"] == "default"
 
 
 class TestInitDb:

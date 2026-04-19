@@ -118,17 +118,25 @@ async function getProjectConfig(): Promise<ProjectConfig | null> {
       paymentProvider: ({ results }) =>
         results.projectType === "frontend"
           ? Promise.resolve("nomba")
-          : p.select({
-              message: "Choose your payment provider",
-              options: Object.entries(PAYMENT_PROVIDERS).map(([key, provider]) => ({
-                value: key,
-                label: provider.comingSoon
-                  ? `${provider.name} ${chalk.yellow("(coming soon)")}`
-                  : provider.name,
-                hint: `${provider.description} • ${provider.regions.join(", ")}`,
-              })),
-              initialValue: "nomba",
-            }),
+          : (async () => {
+              const selected = await p.select({
+                message: "Choose your payment provider",
+                options: Object.entries(PAYMENT_PROVIDERS).map(([key, provider]) => ({
+                  value: key,
+                  label: provider.comingSoon
+                    ? `${provider.name} ${chalk.dim("(coming soon)")}`
+                    : provider.name,
+                  hint: `${provider.description} • ${provider.regions.join(", ")}`,
+                })),
+                initialValue: "nomba",
+              });
+
+              if (typeof selected === "string" && PAYMENT_PROVIDERS[selected as keyof typeof PAYMENT_PROVIDERS]?.comingSoon) {
+                p.log.warn(`${PAYMENT_PROVIDERS[selected as keyof typeof PAYMENT_PROVIDERS].name} is coming soon. Using Nomba instead.`);
+                return "nomba";
+              }
+              return selected;
+            })(),
 
       emailProvider: ({ results }) =>
         results.projectType === "frontend"
@@ -492,12 +500,6 @@ function printNextSteps(targetDir: string, config: ProjectConfig) {
     console.log(chalk.hex("#ffb088")("  Examples: ") + chalk.white(config.includeExamples ? "Yes" : "No"));
   }
   console.log();
-
-  if (includeBackend && config.paymentProvider !== "nomba") {
-    p.log.warn(
-      `${PAYMENT_PROVIDERS[config.paymentProvider].name} is coming soon. Using Nomba as default.`
-    );
-  }
 
   console.log(chalk.hex("#ffb088")("  📚 Docs: ") + chalk.hex("#f7c59f")("https://github.com/sir-temi/fastapi-next-jollof"));
   console.log();

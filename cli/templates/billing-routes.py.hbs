@@ -221,7 +221,7 @@ async def verify_payment(
 @limiter.limit(PUBLIC_LIMIT)
 async def get_plans(request: Request):
     """Get active billing plans."""
-    plans = await Plan.filter(is_active=True).order_by("price")
+    plans = await Plan.filter(is_active=True).order_by("price").all()
     return plans
 
 
@@ -241,7 +241,7 @@ async def get_credits_overview(
 
     recent_purchases = await Payment.filter(
         user_id=current_user.id
-    ).order_by("-created_at").limit(20)
+    ).order_by("-created_at").limit(20).all()
 
     return CreditsOverviewResponse(
         current_balance=current_user.credits,

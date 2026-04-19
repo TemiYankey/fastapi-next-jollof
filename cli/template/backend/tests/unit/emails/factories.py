@@ -3,6 +3,7 @@
 from contextlib import contextmanager
 from unittest.mock import patch
 
+from app.core.config import settings
 from app.emails.enums import EmailProvider, EmailType
 from app.emails.schemas import EmailRequest, EmailResponse, TemplatedEmailRequest
 
@@ -33,8 +34,6 @@ class SettingsFactory:
             with SettingsFactory.mock(resend_api_key=""):
                 # settings with empty resend key
         """
-        from app.core.config import settings
-
         values = {**cls.DEFAULT_SETTINGS, **overrides}
         patches = [
             patch.object(settings, key, value)

@@ -250,6 +250,19 @@ class TestVerifyPayment:
             assert "failed" in result.error_message.lower()
 
 
+def create_async_queryset_mock(return_value):
+    """Create a mock that works as an async queryset.
+
+    Handles both `await queryset` and `await queryset.all()` patterns.
+    """
+    mock = MagicMock()
+    # Make it directly awaitable
+    mock.__await__ = lambda self: iter([return_value])
+    # Also support .all() pattern
+    mock.all = AsyncMock(return_value=return_value)
+    return mock
+
+
 class TestGetPlans:
     """Tests for get_plans endpoint."""
 
@@ -277,8 +290,7 @@ class TestGetPlans:
 
         with patch("app.billing.routes.Plan") as mock_plan_model:
             mock_filter = MagicMock()
-            mock_order_by = MagicMock()
-            mock_order_by.all = AsyncMock(return_value=mock_plans)
+            mock_order_by = create_async_queryset_mock(mock_plans)
             mock_filter.order_by.return_value = mock_order_by
             mock_plan_model.filter.return_value = mock_filter
 
@@ -334,15 +346,13 @@ class TestGetCreditsOverview:
         mock_request = MagicMock()
 
         with patch("app.billing.routes.Payment") as mock_payment_model:
-            # First call: successful purchases
-            mock_filter1 = MagicMock()
-            mock_filter1.all = AsyncMock(return_value=mock_purchases)
+            # First call: successful purchases (just .all())
+            mock_filter1 = create_async_queryset_mock(mock_purchases)
 
             # Second call: recent history with ordering and limit
             mock_filter2 = MagicMock()
             mock_order_by = MagicMock()
-            mock_limit = MagicMock()
-            mock_limit.all = AsyncMock(return_value=mock_purchases)
+            mock_limit = create_async_queryset_mock(mock_purchases)
             mock_order_by.limit.return_value = mock_limit
             mock_filter2.order_by.return_value = mock_order_by
 
