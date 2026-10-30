@@ -1,3 +1,32 @@
+{{#if noEmail}}
+"""Tests for EmailService when no email provider is configured."""
+
+import pytest
+from app.emails.enums import EmailProvider, EmailType
+from app.emails.service import EmailService
+
+from tests.unit.emails.factories import EmailRequestFactory, TemplatedEmailRequestFactory
+
+
+class TestEmailServiceNotConfigured:
+    """EmailService should fail gracefully without a provider."""
+
+    @pytest.mark.asyncio
+    async def test_send_returns_not_configured(self):
+        response = await EmailService.send(EmailRequestFactory.create())
+
+        assert response.success is False
+        assert response.provider == EmailProvider.NONE
+        assert response.error == "Email provider not configured"
+
+    @pytest.mark.asyncio
+    async def test_send_templated_returns_not_configured(self):
+        request = TemplatedEmailRequestFactory.create(email_type=EmailType.WELCOME)
+        response = await EmailService.send_templated(request)
+
+        assert response.success is False
+        assert response.provider == EmailProvider.NONE
+{{else}}
 """Tests for EmailService."""
 
 from unittest.mock import patch
@@ -226,3 +255,4 @@ class TestConvenienceFunctions:
                 assert request.context["amount"] == "₦5,000"
                 assert request.context["credits"] == "50"
                 assert request.context["reference"] == "PAY-123"
+{{/if}}

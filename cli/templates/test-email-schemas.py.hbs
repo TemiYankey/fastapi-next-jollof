@@ -116,8 +116,10 @@ class TestEmailResponse:
             message_id="msg-123",
 {{#if isResend}}
             provider=EmailProvider.RESEND,
-{{else}}
+{{else if isBrevo}}
             provider=EmailProvider.BREVO,
+{{else}}
+            provider=EmailProvider.NONE,
 {{/if}}
         )
 
@@ -125,8 +127,10 @@ class TestEmailResponse:
         assert response.message_id == "msg-123"
 {{#if isResend}}
         assert response.provider == EmailProvider.RESEND
-{{else}}
+{{else if isBrevo}}
         assert response.provider == EmailProvider.BREVO
+{{else}}
+        assert response.provider == EmailProvider.NONE
 {{/if}}
         assert response.error is None
 
@@ -136,8 +140,10 @@ class TestEmailResponse:
             success=False,
 {{#if isResend}}
             provider=EmailProvider.RESEND,
-{{else}}
+{{else if isBrevo}}
             provider=EmailProvider.BREVO,
+{{else}}
+            provider=EmailProvider.NONE,
 {{/if}}
             error="API Error: Invalid sender",
         )
@@ -146,8 +152,10 @@ class TestEmailResponse:
         assert response.message_id is None
 {{#if isResend}}
         assert response.provider == EmailProvider.RESEND
-{{else}}
+{{else if isBrevo}}
         assert response.provider == EmailProvider.BREVO
+{{else}}
+        assert response.provider == EmailProvider.NONE
 {{/if}}
         assert response.error == "API Error: Invalid sender"
 
@@ -171,8 +179,11 @@ class TestEmailProviderConfig:
 {{#if isResend}}
             provider=EmailProvider.RESEND,
             api_key="re_test_key",
-{{else}}
+{{else if isBrevo}}
             provider=EmailProvider.BREVO,
+            api_key="xkeysib_test_key",
+{{else}}
+            provider=EmailProvider.NONE,
             api_key="xkeysib_test_key",
 {{/if}}
             from_email="noreply@example.com",
@@ -181,8 +192,11 @@ class TestEmailProviderConfig:
 {{#if isResend}}
         assert config.provider == EmailProvider.RESEND
         assert config.api_key == "re_test_key"
-{{else}}
+{{else if isBrevo}}
         assert config.provider == EmailProvider.BREVO
+        assert config.api_key == "xkeysib_test_key"
+{{else}}
+        assert config.provider == EmailProvider.NONE
         assert config.api_key == "xkeysib_test_key"
 {{/if}}
         assert config.from_email == "noreply@example.com"
@@ -194,8 +208,11 @@ class TestEmailProviderConfig:
 {{#if isResend}}
             provider=EmailProvider.RESEND,
             api_key="re_test",
-{{else}}
+{{else if isBrevo}}
             provider=EmailProvider.BREVO,
+            api_key="xkeysib_test",
+{{else}}
+            provider=EmailProvider.NONE,
             api_key="xkeysib_test",
 {{/if}}
             from_email="noreply@example.com",
@@ -212,8 +229,10 @@ class TestEmailEnums:
         """Test EmailProvider enum values."""
 {{#if isResend}}
         assert EmailProvider.RESEND.value == "resend"
-{{else}}
+{{else if isBrevo}}
         assert EmailProvider.BREVO.value == "brevo"
+{{else}}
+        assert EmailProvider.NONE.value == "none"
 {{/if}}
 
     def test_email_type_values(self):
@@ -229,8 +248,10 @@ class TestEmailEnums:
         """Test creating EmailProvider from string."""
 {{#if isResend}}
         assert EmailProvider("resend") == EmailProvider.RESEND
-{{else}}
+{{else if isBrevo}}
         assert EmailProvider("brevo") == EmailProvider.BREVO
+{{else}}
+        assert EmailProvider("none") == EmailProvider.NONE
 {{/if}}
 
     def test_email_type_from_string(self):

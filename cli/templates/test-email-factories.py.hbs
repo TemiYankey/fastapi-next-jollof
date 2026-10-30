@@ -179,7 +179,7 @@ class EmailResponseFactory:
 
     @staticmethod
     def create_success(
-        provider: EmailProvider = EmailProvider.{{#if isResend}}RESEND{{/if}}{{#if isBrevo}}BREVO{{/if}},
+        provider: EmailProvider = EmailProvider.{{#if isResend}}RESEND{{/if}}{{#if isBrevo}}BREVO{{/if}}{{#if noEmail}}NONE{{/if}},
         message_id: str = "test-message-id-123",
     ) -> EmailResponse:
         """Create a successful EmailResponse."""
@@ -192,7 +192,7 @@ class EmailResponseFactory:
 
     @staticmethod
     def create_failure(
-        provider: EmailProvider = EmailProvider.{{#if isResend}}RESEND{{/if}}{{#if isBrevo}}BREVO{{/if}},
+        provider: EmailProvider = EmailProvider.{{#if isResend}}RESEND{{/if}}{{#if isBrevo}}BREVO{{/if}}{{#if noEmail}}NONE{{/if}},
         error: str = "Test error message",
     ) -> EmailResponse:
         """Create a failed EmailResponse."""

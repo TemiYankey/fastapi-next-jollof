@@ -10,7 +10,7 @@ from app.emails.providers.resend import ResendProvider
 from app.emails.providers.brevo import BrevoProvider
 {{/if}}
 {{else}}
-from app.emails.enums import EmailType
+from app.emails.enums import EmailProvider, EmailType
 {{/unless}}
 from app.emails.schemas import EmailRequest, EmailResponse, TemplatedEmailRequest
 from app.emails.templates import get_email_template
@@ -85,7 +85,7 @@ class EmailService:
         logger.warning("Email provider not configured")
         return EmailResponse(
             success=False,
-            provider=None,
+            provider=EmailProvider.NONE,
             error="Email provider not configured",
         )
 
@@ -95,7 +95,7 @@ class EmailService:
         logger.warning("Email provider not configured")
         return EmailResponse(
             success=False,
-            provider=None,
+            provider=EmailProvider.NONE,
             error="Email provider not configured",
         )
 {{/unless}}

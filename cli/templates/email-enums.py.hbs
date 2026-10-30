@@ -3,7 +3,6 @@
 from enum import Enum
 
 
-{{#unless noEmail}}
 class EmailProvider(str, Enum):
     """Supported email providers."""
 
@@ -13,7 +12,9 @@ class EmailProvider(str, Enum):
 {{#if isBrevo}}
     BREVO = "brevo"
 {{/if}}
-{{/unless}}
+{{#if noEmail}}
+    NONE = "none"
+{{/if}}
 
 
 class EmailType(str, Enum):
