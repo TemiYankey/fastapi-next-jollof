@@ -2,6 +2,9 @@
 
 import hashlib
 import hmac
+{{#if isStripe}}
+import time
+{{/if}}
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -34,6 +37,24 @@ def create_async_queryset_mock(return_value):
 class TestVerifyWebhookSignature:
     """Tests for verify_webhook_signature function."""
 
+{{#if isStripe}}
+    @staticmethod
+    def _stripe_signature(payload: bytes, secret: str, timestamp: int | None = None) -> str:
+        """Build a Stripe-Signature header (t=<ts>,v1=<HMAC-SHA256 of "<ts>.<payload>">)."""
+        timestamp = timestamp or int(time.time())
+        signed = f"{timestamp}.".encode("utf-8") + payload
+        digest = hmac.new(secret.encode("utf-8"), signed, hashlib.sha256).hexdigest()
+        return f"t={timestamp},v1={digest}"
+
+    def test_valid_signature(self):
+        """Test valid webhook signature verification."""
+        payload = b'{"id": "evt_123", "object": "event"}'
+        secret = "whsec_test"
+
+        signature = self._stripe_signature(payload, secret)
+
+        assert verify_webhook_signature(payload, signature, secret) is True
+{{else}}
     def test_valid_signature(self):
         """Test valid webhook signature verification."""
         payload = b'{"orderReference": "123"}'
@@ -46,6 +67,7 @@ class TestVerifyWebhookSignature:
         result = verify_webhook_signature(payload, expected_signature, secret)
 
         assert result is True
+{{/if}}
 
     def test_invalid_signature(self):
         """Test invalid webhook signature verification."""
@@ -75,6 +97,24 @@ class TestVerifyWebhookSignature:
 
         assert result is False
 
+{{#if isStripe}}
+    def test_tampered_payload_rejected(self):
+        """Test a valid signature does not verify a modified payload."""
+        secret = "whsec_test"
+        signature = self._stripe_signature(b'{"id": "evt_123", "object": "event"}', secret)
+
+        result = verify_webhook_signature(b'{"id": "evt_999", "object": "event"}', signature, secret)
+
+        assert result is False
+
+    def test_expired_timestamp_rejected(self):
+        """Test signatures older than Stripe's tolerance are rejected (replay protection)."""
+        payload = b'{"id": "evt_123", "object": "event"}'
+        secret = "whsec_test"
+        signature = self._stripe_signature(payload, secret, timestamp=int(time.time()) - 3600)
+
+        assert verify_webhook_signature(payload, signature, secret) is False
+{{else}}
     def test_signature_case_insensitive(self):
         """Test signature verification is case insensitive."""
         payload = b'{"orderReference": "123"}'
@@ -87,6 +127,7 @@ class TestVerifyWebhookSignature:
         result = verify_webhook_signature(payload, expected_signature.upper(), secret)
 
         assert result is True
+{{/if}}
 
 
 class TestCreateCheckoutSession:
