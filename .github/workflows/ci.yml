@@ -33,10 +33,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { payment: nomba, email: resend }
-          - { payment: stripe, email: brevo }
-          - { payment: paystack, email: none }
+        payment: [nomba, stripe, paystack]
+        email: [resend, brevo, none]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
