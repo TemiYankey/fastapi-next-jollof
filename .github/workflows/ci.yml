@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  cli:
+    name: CLI (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22]
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  generated-backend:
+    name: Generated backend (${{ matrix.payment }} + ${{ matrix.email }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { payment: nomba, email: resend }
+          - { payment: stripe, email: brevo }
+          - { payment: paystack, email: none }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Scaffold app
+        working-directory: cli
+        run: |
+          npm ci
+          npm run build
+          mkdir -p "$RUNNER_TEMP/gen"
+          cd "$RUNNER_TEMP/gen"
+          node "$GITHUB_WORKSPACE/cli/dist/index.js" ci-app \
+            --payment ${{ matrix.payment }} --email ${{ matrix.email }} --no-install --no-git
+      - name: Run backend tests
+        working-directory: ${{ runner.temp }}/gen/ci-app/backend
+        run: |
+          pip install -r requirements.txt
+          python -m pytest -q

@@ -13,6 +13,7 @@ import type { ProjectConfig } from "../lib/types.js";
 
 const baseConfig: ProjectConfig = {
   projectName: "my-test-app",
+  projectType: "fullstack",
   appName: "My Test App",
   colorTheme: "indigo",
   paymentProvider: "nomba",

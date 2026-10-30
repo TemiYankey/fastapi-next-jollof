@@ -1,5 +1,7 @@
 # create-jollof-app 🍛
 
+[![CI](https://github.com/TemiYankey/fastapi-next-jollof/actions/workflows/ci.yml/badge.svg)](https://github.com/TemiYankey/fastapi-next-jollof/actions/workflows/ci.yml)
+
 A CLI to scaffold production-ready **FastAPI + Next.js** applications with authentication, payments, and email built-in.
 
 ```
